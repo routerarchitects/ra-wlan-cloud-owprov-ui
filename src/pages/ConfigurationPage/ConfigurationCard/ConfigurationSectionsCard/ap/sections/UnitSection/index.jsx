@@ -1,14 +1,13 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { SimpleGrid } from '@chakra-ui/react';
 import { Formik } from 'formik';
 import PropTypes from 'prop-types';
 import isEqual from 'react-fast-compare';
 import { useTranslation } from 'react-i18next';
-import { v4 as uuid } from 'uuid';
-import InternalFormAccess from '../common/InternalFormAccess';
-import SectionGeneralCard from '../common/SectionGeneralCard';
-import ThirdParty from './ThirdParty';
-import { THIRD_PARTY_SCHEMA } from './thirdPartyConstants';
+import InternalFormAccess from '../../../common/InternalFormAccess';
+import SectionGeneralCard from '../../../common/SectionGeneralCard';
+import Unit from './Unit';
+import { UNIT_SCHEMA } from './unitConstants';
 import DeleteButton from 'components/Buttons/DeleteButton';
 import { ConfigurationSectionShape } from 'constants/propShapes';
 
@@ -19,15 +18,14 @@ const propTypes = {
   removeSub: PropTypes.func.isRequired,
 };
 
-const ThirdPartySection = ({ editing, setSection, sectionInformation, removeSub }) => {
+const UnitSection = ({ editing, setSection, sectionInformation, removeSub }) => {
   const { t } = useTranslation();
-  const [formKey, setFormKey] = useState(uuid());
   const sectionRef = useCallback(
     (node) => {
       if (node !== null) {
         const invalidValues = [];
         for (const [k, error] of Object.entries(node.errors)) {
-          invalidValues.push({ key: `third-party.${k}`, error });
+          invalidValues.push({ key: `unit.${k}`, error });
         }
 
         const newSection = {
@@ -44,31 +42,20 @@ const ThirdPartySection = ({ editing, setSection, sectionInformation, removeSub 
     [sectionInformation],
   );
 
-  const removeUnit = () => removeSub('third-party');
-
-  useEffect(() => {
-    if (!editing) {
-      setFormKey(uuid());
-    }
-  }, [editing]);
+  const removeUnit = () => removeSub('unit');
 
   return (
-    <Formik
-      key={formKey}
-      innerRef={sectionRef}
-      initialValues={sectionInformation.data}
-      validationSchema={THIRD_PARTY_SCHEMA(t)}
-    >
+    <Formik innerRef={sectionRef} initialValues={sectionInformation.data} validationSchema={UNIT_SCHEMA(t)}>
       <>
         <InternalFormAccess shouldValidate={sectionInformation?.shouldValidate} />
-        <SimpleGrid minChildWidth="800px" spacing={4}>
+        <SimpleGrid minChildWidth="400px" spacing={4}>
           <SectionGeneralCard buttons={<DeleteButton onClick={removeUnit} isDisabled={!editing} />} editing={editing} />
-          <ThirdParty editing={editing} />
+          <Unit editing={editing} />
         </SimpleGrid>
       </>
     </Formik>
   );
 };
 
-ThirdPartySection.propTypes = propTypes;
-export default React.memo(ThirdPartySection, isEqual);
+UnitSection.propTypes = propTypes;
+export default React.memo(UnitSection, isEqual);

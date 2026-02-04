@@ -5,10 +5,10 @@ import PropTypes from 'prop-types';
 import isEqual from 'react-fast-compare';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
-import InternalFormAccess from '../common/InternalFormAccess';
-import SectionGeneralCard from '../common/SectionGeneralCard';
-import Globals from './Globals';
-import { GLOBALS_SCHEMA } from './globalsConstants';
+import InternalFormAccess from '../../../common/InternalFormAccess';
+import SectionGeneralCard from '../../../common/SectionGeneralCard';
+import ThirdParty from './ThirdParty';
+import { THIRD_PARTY_SCHEMA } from './thirdPartyConstants';
 import DeleteButton from 'components/Buttons/DeleteButton';
 import { ConfigurationSectionShape } from 'constants/propShapes';
 
@@ -19,7 +19,7 @@ const propTypes = {
   removeSub: PropTypes.func.isRequired,
 };
 
-const GlobalsSection = ({ editing, setSection, sectionInformation, removeSub }) => {
+const ThirdPartySection = ({ editing, setSection, sectionInformation, removeSub }) => {
   const { t } = useTranslation();
   const [formKey, setFormKey] = useState(uuid());
   const sectionRef = useCallback(
@@ -27,7 +27,7 @@ const GlobalsSection = ({ editing, setSection, sectionInformation, removeSub }) 
       if (node !== null) {
         const invalidValues = [];
         for (const [k, error] of Object.entries(node.errors)) {
-          invalidValues.push({ key: `globals.${k}`, error });
+          invalidValues.push({ key: `third-party.${k}`, error });
         }
 
         const newSection = {
@@ -44,7 +44,7 @@ const GlobalsSection = ({ editing, setSection, sectionInformation, removeSub }) 
     [sectionInformation],
   );
 
-  const removeUnit = () => removeSub('globals');
+  const removeUnit = () => removeSub('third-party');
 
   useEffect(() => {
     if (!editing) {
@@ -57,18 +57,18 @@ const GlobalsSection = ({ editing, setSection, sectionInformation, removeSub }) 
       key={formKey}
       innerRef={sectionRef}
       initialValues={sectionInformation.data}
-      validationSchema={GLOBALS_SCHEMA(t)}
+      validationSchema={THIRD_PARTY_SCHEMA(t)}
     >
       <>
         <InternalFormAccess shouldValidate={sectionInformation?.shouldValidate} />
-        <SimpleGrid minChildWidth="400px" spacing={4}>
+        <SimpleGrid minChildWidth="800px" spacing={4}>
           <SectionGeneralCard buttons={<DeleteButton onClick={removeUnit} isDisabled={!editing} />} editing={editing} />
-          <Globals editing={editing} />
+          <ThirdParty editing={editing} />
         </SimpleGrid>
       </>
     </Formik>
   );
 };
 
-GlobalsSection.propTypes = propTypes;
-export default React.memo(GlobalsSection, isEqual);
+ThirdPartySection.propTypes = propTypes;
+export default React.memo(ThirdPartySection, isEqual);
