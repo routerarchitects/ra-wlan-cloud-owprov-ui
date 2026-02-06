@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { SimpleGrid, Tab, TabList, TabPanel, TabPanels, Tabs, useToast } from '@chakra-ui/react';
-import { AxiosError } from 'axios';
 import { Formik, FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import { object, string } from 'yup';
-import TunnelResourceForm from './Form';
+import InterfaceSsidForm from './Form';
 import NotesTable from 'components/CustomFields/NotesTable';
 import StringField from 'components/FormFields/StringField';
 import { useCreateResource, useUpdateResource } from 'hooks/Network/Resources';
+import { AxiosError } from 'models/Axios';
 import { Note } from 'models/Note';
 import { Resource } from 'models/Resource';
-import { INTERFACE_TUNNEL_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/interfacesConstants';
+import { INTERFACE_SSID_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/interfacesConstants';
 
 export const EDIT_SCHEMA = (t: (str: string) => string) =>
   object().shape({
     _unused_name: string().required(t('form.required')).default(''),
     _unused_description: string().default(''),
-    editing: INTERFACE_TUNNEL_SCHEMA(t),
+    editing: INTERFACE_SSID_SCHEMA(t),
   });
 
 interface Props {
@@ -34,7 +34,7 @@ interface Props {
   };
 }
 
-const InterfaceTunnelResource = ({
+const InterfaceSsidResource: React.FC<Props> = ({
   isOpen,
   onClose,
   refresh,
@@ -42,7 +42,7 @@ const InterfaceTunnelResource = ({
   resource,
   isDisabled = false,
   parent,
-}: Props) => {
+}) => {
   const { t } = useTranslation();
   const toast = useToast();
   const [formKey, setFormKey] = useState(uuid());
@@ -68,9 +68,9 @@ const InterfaceTunnelResource = ({
               _unused_notes: resource.notes,
             }
           : {
-              editing: { ...INTERFACE_TUNNEL_SCHEMA(t, true).cast() },
-              _unused_name: 'Tunnel',
-              _unused_description: '',
+              editing: { ...INTERFACE_SSID_SCHEMA(t, true).cast() },
+              _unused_name: 'Name',
+              _unused_description: 'Description',
               _unused_notes: [],
             }
       }
@@ -94,7 +94,7 @@ const InterfaceTunnelResource = ({
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'interface.tunnel',
+                    prefix: 'interface.ssid',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -149,7 +149,7 @@ const InterfaceTunnelResource = ({
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'interface.tunnel',
+                    prefix: 'interface.ssid',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -207,11 +207,11 @@ const InterfaceTunnelResource = ({
         </TabList>
         <TabPanels>
           <TabPanel>
-            <SimpleGrid minChildWidth="300px" spacing="20px" my={4}>
+            <SimpleGrid minChildWidth="300px" spacing="20px" mt={4}>
               <StringField name="_unused_name" label={t('common.name')} isRequired isDisabled={isDisabled} />
               <StringField name="_unused_description" label={t('common.description')} isDisabled={isDisabled} />
             </SimpleGrid>
-            <TunnelResourceForm isDisabled={isDisabled} />
+            <InterfaceSsidForm isDisabled={isDisabled} />
           </TabPanel>
           <TabPanel>
             <NotesTable name="_unused_notes" isDisabled={isDisabled} />
@@ -222,4 +222,4 @@ const InterfaceTunnelResource = ({
   );
 };
 
-export default InterfaceTunnelResource;
+export default InterfaceSsidResource;

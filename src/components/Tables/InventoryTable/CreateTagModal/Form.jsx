@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useToast, SimpleGrid } from '@chakra-ui/react';
-import { Formik, Form } from 'formik';
+import { Formik, Form, useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
@@ -23,6 +23,8 @@ const propTypes = {
   onConfigurationChange: PropTypes.func.isRequired,
   configuration: PropTypes.instanceOf(Object),
   deviceTypesList: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceClasses: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceTypesByClass: PropTypes.instanceOf(Object).isRequired,
   entityId: PropTypes.string.isRequired,
   deviceClass: PropTypes.string.isRequired,
   subId: PropTypes.string.isRequired,
@@ -39,6 +41,8 @@ const CreateTagForm = ({
   refresh,
   formRef,
   deviceTypesList,
+  deviceClasses,
+  deviceTypesByClass,
   entityId,
   onConfigurationChange,
   configuration,
@@ -86,6 +90,47 @@ const CreateTagForm = ({
     setFormKey(uuid());
   }, [isOpen]);
 
+  const DeviceTypeFields = () => {
+    const { values, setFieldValue } = useFormikContext();
+    const selectedGroup = values.deviceGroup;
+    const typesForGroup = selectedGroup ? deviceTypesByClass[selectedGroup] ?? [] : [];
+    const deviceTypeOptions = typesForGroup.map((deviceType) => ({
+      value: deviceType,
+      label: deviceType,
+    }));
+
+    useEffect(() => {
+      if (!selectedGroup) {
+        setFieldValue('deviceType', '');
+        return;
+      }
+      if (!typesForGroup.includes(values.deviceType)) {
+        setFieldValue('deviceType', typesForGroup[0] ?? '');
+      }
+    }, [selectedGroup, typesForGroup.join(','), values.deviceType, setFieldValue]);
+
+    return (
+      <>
+        <SelectField
+          name="deviceGroup"
+          label="Device Group"
+          options={deviceClasses.map((deviceGroup) => ({
+            value: deviceGroup,
+            label: deviceGroup,
+          }))}
+          isRequired
+        />
+        <SelectField
+          name="deviceType"
+          label={t('inventory.device_type')}
+          options={deviceTypeOptions}
+          isRequired
+          isDisabled={!selectedGroup}
+        />
+      </>
+    );
+  };
+
   return (
     <Formik
       innerRef={formRef}
@@ -94,7 +139,8 @@ const CreateTagForm = ({
         serialNumber: '',
         name: '',
         description: '',
-        deviceType: deviceTypesList[0],
+        deviceGroup: deviceClasses.includes('ap') ? 'ap' : deviceClasses[0] ?? '',
+        deviceType: '',
         deviceRules: {
           rrm: 'inherit',
           rcOnly: 'inherit',
@@ -153,19 +199,15 @@ const CreateTagForm = ({
         });
       }}
     >
-      <Form>
+      {({ values }) => {
+        const isDeviceSelectionComplete = Boolean(values.deviceGroup && values.deviceType);
+        const isSupportedGroup = values.deviceGroup === 'ap';
+        return (
+          <Form>
         <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
           <StringField name="serialNumber" label={t('inventory.serial_number')} isRequired />
           <StringField name="name" label={t('common.name')} isRequired />
-          <SelectField
-            name="deviceType"
-            label={t('inventory.device_type')}
-            options={deviceTypesList.map((deviceType) => ({
-              value: deviceType,
-              label: deviceType,
-            }))}
-            isRequired
-          />
+          <DeviceTypeFields />
           <SelectWithSearchField
             name="entity"
             label={t('inventory.parent')}
@@ -207,8 +249,10 @@ const CreateTagForm = ({
           <StringField name="description" label={t('common.description')} />
           <StringField name="note" label={t('common.note')} />
         </SimpleGrid>
-        <SpecialConfigurationManager editing onChange={onConfigurationChange} />
+        <SpecialConfigurationManager editing={isDeviceSelectionComplete && isSupportedGroup} onChange={onConfigurationChange} />
       </Form>
+        );
+      }}
     </Formik>
   );
 };

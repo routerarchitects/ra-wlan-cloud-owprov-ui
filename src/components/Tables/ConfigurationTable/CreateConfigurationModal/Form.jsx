@@ -7,6 +7,7 @@ import { v4 as uuid } from 'uuid';
 import DeviceRulesField from 'components/CustomFields/DeviceRulesField';
 import SpecialConfigurationManager from 'components/CustomFields/SpecialConfigurationManager';
 import MultiSelectField from 'components/FormFields/MultiSelectField';
+import SelectField from 'components/FormFields/SelectField';
 import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import { CreateConfigurationSchema } from 'constants/formSchemas';
@@ -21,6 +22,8 @@ const propTypes = {
   refresh: PropTypes.func.isRequired,
   formRef: PropTypes.instanceOf(Object).isRequired,
   deviceTypesList: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceClasses: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceTypesByClass: PropTypes.instanceOf(Object).isRequired,
   onConfigurationChange: PropTypes.func.isRequired,
   entityId: PropTypes.string,
 };
@@ -35,6 +38,8 @@ const CreateConfigurationForm = ({
   refresh,
   formRef,
   deviceTypesList,
+  deviceClasses,
+  deviceTypesByClass,
   entityId,
   onConfigurationChange,
 }) => {
@@ -73,6 +78,7 @@ const CreateConfigurationForm = ({
       initialValues={{
         name: '',
         description: '',
+        deviceGroup: deviceClasses.includes('ap') ? 'ap' : deviceClasses[0] ?? '',
         deviceTypes: [],
         deviceRules: {
           rrm: 'inherit',
@@ -121,23 +127,41 @@ const CreateConfigurationForm = ({
         })
       }
     >
-      {({ errors, touched, setFieldValue }) => (
+      {({ errors, touched, setFieldValue, values }) => {
+        const selectedGroup = values.deviceGroup;
+        const typesForGroup = selectedGroup ? deviceTypesByClass[selectedGroup] ?? [] : [];
+        const deviceTypeOptions = typesForGroup.map((deviceType) => ({
+          value: deviceType,
+          label: deviceType,
+        }));
+        const isDeviceSelectionComplete = Boolean(values.deviceGroup && values.deviceTypes?.length > 0);
+
+        return (
         <>
           <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
             <StringField name="name" label={t('common.name')} errors={errors} touched={touched} isRequired />
+            <SelectField
+              name="deviceGroup"
+              label="Device Group"
+              errors={errors}
+              touched={touched}
+              options={deviceClasses.map((deviceGroup) => ({
+                value: deviceGroup,
+                label: deviceGroup,
+              }))}
+              isRequired
+            />
             <MultiSelectField
               name="deviceTypes"
               label={t('configurations.device_types')}
               errors={errors}
               touched={touched}
-              options={deviceTypesList.map((deviceType) => ({
-                value: deviceType,
-                label: deviceType,
-              }))}
+              options={deviceTypeOptions}
               isRequired
               setFieldValue={setFieldValue}
               canSelectAll
               isPortal
+              isDisabled={!selectedGroup}
             />
             <SelectWithSearchField
               name="entity"
@@ -172,10 +196,17 @@ const CreateConfigurationForm = ({
             <StringField name="note" label={t('common.note')} errors={errors} touched={touched} />
           </SimpleGrid>
           <ConfigurationProvider entityId={getEntityId()}>
-            <SpecialConfigurationManager editing isEnabledByDefault isOnlySections onChange={onConfigurationChange} />
+            <SpecialConfigurationManager
+              editing={isDeviceSelectionComplete}
+              isEnabledByDefault={isDeviceSelectionComplete}
+              isOnlySections
+              onChange={onConfigurationChange}
+              deviceGroup={values.deviceGroup}
+            />
           </ConfigurationProvider>
         </>
-      )}
+        );
+      }}
     </Formik>
   );
 };

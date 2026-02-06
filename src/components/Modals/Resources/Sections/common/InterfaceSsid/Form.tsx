@@ -5,9 +5,9 @@ import MultiSelectField from 'components/FormFields/MultiSelectField';
 import SelectField from 'components/FormFields/SelectField';
 import StringField from 'components/FormFields/StringField';
 // eslint-disable-next-line max-len
-import AdvancedSettings from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/SsidList/AdvancedSettings';
-import Encryption from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/SsidList/Encryption';
-import PassPoint from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/SsidList/PassPoint';
+import AdvancedSettings from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/SingleInterface/SsidList/AdvancedSettings';
+import Encryption from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/SingleInterface/SsidList/Encryption';
+import PassPoint from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/SingleInterface/SsidList/PassPoint';
 
 const namePrefix = 'editing';
 

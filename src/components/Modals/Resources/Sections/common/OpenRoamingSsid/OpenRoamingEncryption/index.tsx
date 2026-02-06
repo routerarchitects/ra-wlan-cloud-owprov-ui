@@ -5,7 +5,7 @@ import {
   ENCRYPTION_PROTOS_REQUIRE_IEEE,
   ENCRYPTION_PROTOS_REQUIRE_KEY,
   NO_MULTI_PROTOS,
-} from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/interfacesConstants';
+} from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/interfacesConstants';
 
 const OpenRoamingEncryption = ({
   editing,

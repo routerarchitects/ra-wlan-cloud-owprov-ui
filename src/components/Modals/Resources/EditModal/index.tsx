@@ -10,14 +10,16 @@ import {
   useBoolean,
 } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
-import InterfaceCaptiveResource from '../Sections/CaptivePortal';
-import InterfaceSsidResource from '../Sections/InterfaceSsid';
-import InterfaceSsidRadiusResource from '../Sections/InterfaceSsidRadius';
-import InterfaceVlanResource from '../Sections/InterfaceVlan';
-import InterfaceIpv4Resource from '../Sections/Ipv4';
-import OpenRoamingSSID from '../Sections/OpenRoamingSsid';
-import SingleRadioResource from '../Sections/SingleRadio';
-import InterfaceTunnelResource from '../Sections/Tunnel';
+import {
+  CaptivePortalResource,
+  InterfaceSsidResource,
+  InterfaceSsidRadiusResource,
+  InterfaceVlanResource,
+  InterfaceIpv4Resource,
+  OpenRoamingSsidResource,
+  SingleRadioResource,
+  InterfaceTunnelResource,
+} from '../Sections';
 import CloseButton from 'components/Buttons/CloseButton';
 import EditButton from 'components/Buttons/EditButton';
 import SaveButton from 'components/Buttons/SaveButton';
@@ -69,6 +71,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     refresh();
   };
 
+  const deviceGroup = 'ap';
   const getForm = () => {
     if (isLoading || !resourceData)
       return (
@@ -81,7 +84,8 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
 
     if (resourceType === 'interface.captive')
       return (
-        <InterfaceCaptiveResource
+        <CaptivePortalResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -94,6 +98,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'interface.ssid.radius')
       return (
         <InterfaceSsidRadiusResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -105,6 +110,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'interface.tunnel')
       return (
         <InterfaceTunnelResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -116,7 +122,8 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
 
     if (resourceType === 'interface.ssid.openroaming')
       return (
-        <OpenRoamingSSID
+        <OpenRoamingSsidResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -130,6 +137,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'interface.vlan')
       return (
         <InterfaceVlanResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -142,6 +150,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'interface.ssid')
       return (
         <InterfaceSsidResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -153,6 +162,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'interface.ipv4')
       return (
         <InterfaceIpv4Resource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}
@@ -165,6 +175,7 @@ const EditResourceModal: React.FC<Props> = ({ isOpen, onClose, resource, refresh
     if (resourceType === 'radio')
       return (
         <SingleRadioResource
+          deviceGroup={deviceGroup}
           resource={resourceData}
           isOpen={isOpen}
           onClose={onClose}

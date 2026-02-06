@@ -34,7 +34,7 @@ import SaveButton from 'components/Buttons/SaveButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import ModalHeader from 'components/Modals/ModalHeader';
 import { useGetDeviceConfigurationOverrides } from 'hooks/Network/ConfigurationOverride';
-import useGetDeviceTypes from 'hooks/Network/DeviceTypes';
+import useGetDeviceTypes, { useGetDeviceTypeInfo } from 'hooks/Network/DeviceTypes';
 import { useGetGatewayUi } from 'hooks/Network/Endpoints';
 import { useDeleteTag, useGetTag } from 'hooks/Network/Inventory';
 import { axiosProv } from 'utils/axiosInstances';
@@ -103,6 +103,9 @@ const EditTagModal = ({
     [form],
   );
   const { data: deviceTypesList } = useGetDeviceTypes();
+  const { data: deviceTypeInfo } = useGetDeviceTypeInfo();
+  const deviceClasses = deviceTypeInfo?.deviceClasses ?? [];
+  const deviceTypesByClass = deviceTypeInfo?.deviceTypesByClass ?? {};
   const { data: tagData, isLoading } = useGetTag({
     t,
     toast,
@@ -225,6 +228,8 @@ const EditTagModal = ({
               refresh={refresh}
               formRef={formRef}
               deviceTypesList={deviceTypesList ?? []}
+              deviceClasses={deviceClasses}
+              deviceTypesByClass={deviceTypesByClass}
               configuration={configuration}
               onConfigurationChange={onConfigurationChange}
             />

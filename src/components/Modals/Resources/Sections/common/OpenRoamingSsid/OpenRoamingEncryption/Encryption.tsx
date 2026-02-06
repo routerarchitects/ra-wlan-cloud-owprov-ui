@@ -7,7 +7,7 @@ import ToggleField from 'components/FormFields/ToggleField';
 import {
   ENCRYPTION_OPTIONS,
   ENCRYPTION_PROTOS_REQUIRE_RADIUS,
-} from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/interfacesConstants';
+} from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/interfacesConstants';
 
 interface Props {
   editing: boolean;

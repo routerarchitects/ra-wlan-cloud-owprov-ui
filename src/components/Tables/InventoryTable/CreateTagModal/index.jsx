@@ -9,7 +9,7 @@ import CreateButton from 'components/Buttons/CreateButton';
 import SaveButton from 'components/Buttons/SaveButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import ModalHeader from 'components/Modals/ModalHeader';
-import useGetDeviceTypes from 'hooks/Network/DeviceTypes';
+import useGetDeviceTypes, { useGetDeviceTypeInfo } from 'hooks/Network/DeviceTypes';
 import useFormRef from 'hooks/useFormRef';
 import { axiosProv } from 'utils/axiosInstances';
 
@@ -32,6 +32,9 @@ const CreateTagModal = ({ refresh, entityId, subId, deviceClass }) => {
   const { isOpen: showConfirm, onOpen: openConfirm, onClose: closeConfirm } = useDisclosure();
   const { form, formRef } = useFormRef();
   const { data: deviceTypes } = useGetDeviceTypes();
+  const { data: deviceTypeInfo } = useGetDeviceTypeInfo();
+  const deviceClasses = deviceTypeInfo?.deviceClasses ?? [];
+  const deviceTypesByClass = deviceTypeInfo?.deviceTypesByClass ?? {};
   const [configuration, setConfiguration] = useState(null);
 
   const onConfigurationChange = useCallback((conf) => setConfiguration(conf), []);
@@ -81,6 +84,8 @@ const CreateTagModal = ({ refresh, entityId, subId, deviceClass }) => {
           <ModalBody>
             <CreateTagForm
               deviceTypesList={deviceTypes ?? []}
+              deviceClasses={deviceClasses}
+              deviceTypesByClass={deviceTypesByClass}
               create={create}
               isOpen={isOpen}
               onClose={onClose}

@@ -10,14 +10,14 @@ import StringField from 'components/FormFields/StringField';
 import { useCreateResource, useUpdateResource } from 'hooks/Network/Resources';
 import { Note } from 'models/Note';
 import { Resource } from 'models/Resource';
-import { INTERFACE_CAPTIVE_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/interfacesConstants';
-import Captive from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/SsidList/Captive/Captive';
+import { SINGLE_RADIO_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/RadiosSection/radiosConstants';
+import SingleRadio from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/RadiosSection/SingleRadio';
 
 export const EDIT_SCHEMA = (t: (str: string) => string) =>
   object().shape({
     _unused_name: string().required(t('form.required')).default(''),
     _unused_description: string().default(''),
-    editing: INTERFACE_CAPTIVE_SCHEMA(t),
+    editing: SINGLE_RADIO_SCHEMA(t),
   });
 
 interface Props {
@@ -34,15 +34,7 @@ interface Props {
   };
 }
 
-const InterfaceCaptiveResource = ({
-  isOpen,
-  onClose,
-  refresh,
-  formRef,
-  resource,
-  isDisabled = false,
-  parent,
-}: Props) => {
+const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDisabled = false, parent }: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const [formKey, setFormKey] = useState(uuid());
@@ -68,8 +60,8 @@ const InterfaceCaptiveResource = ({
               _unused_notes: resource.notes,
             }
           : {
-              editing: { ...INTERFACE_CAPTIVE_SCHEMA(t, true).cast() },
-              _unused_name: 'Captive',
+              editing: { ...SINGLE_RADIO_SCHEMA(t, true, '2G').cast() },
+              _unused_name: 'Radio',
               _unused_description: '',
               _unused_notes: [],
             }
@@ -94,7 +86,7 @@ const InterfaceCaptiveResource = ({
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'interface.captive',
+                    prefix: 'radio',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -149,7 +141,7 @@ const InterfaceCaptiveResource = ({
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'interface.captive',
+                    prefix: 'radio',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -211,7 +203,7 @@ const InterfaceCaptiveResource = ({
               <StringField name="_unused_name" label={t('common.name')} isRequired isDisabled={isDisabled} />
               <StringField name="_unused_description" label={t('common.description')} isDisabled={isDisabled} />
             </SimpleGrid>
-            <Captive namePrefix="editing" isDisabled={isDisabled} />
+            <SingleRadio namePrefix="editing" isDisabled={isDisabled} canEditBand={!resource} />
           </TabPanel>
           <TabPanel>
             <NotesTable name="_unused_notes" isDisabled={isDisabled} />
@@ -222,4 +214,4 @@ const InterfaceCaptiveResource = ({
   );
 };
 
-export default InterfaceCaptiveResource;
+export default SingleRadioResource;

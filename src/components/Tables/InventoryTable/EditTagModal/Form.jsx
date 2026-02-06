@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useToast, Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid, Textarea } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Formik, Field, Form } from 'formik';
+import { Formik, Field, Form, useFormikContext } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
@@ -32,6 +32,8 @@ const propTypes = {
   tag: PropTypes.shape(TagShape).isRequired,
   formRef: PropTypes.instanceOf(Object).isRequired,
   deviceTypesList: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceClasses: PropTypes.arrayOf(PropTypes.string).isRequired,
+  deviceTypesByClass: PropTypes.instanceOf(Object).isRequired,
   onConfigurationChange: PropTypes.func.isRequired,
   configuration: PropTypes.instanceOf(Object),
 };
@@ -49,6 +51,8 @@ const EditTagForm = ({
   tag,
   formRef,
   deviceTypesList,
+  deviceClasses,
+  deviceTypesByClass,
   onConfigurationChange,
   configuration,
 }) => {
@@ -77,6 +81,55 @@ const EditTagForm = ({
     return newList.sort((a, b) => a.localeCompare(b));
   }, [deviceTypesList]);
 
+  const getDeviceGroupFromType = React.useCallback(
+    (deviceType) => {
+      if (!deviceType) return '';
+      const entries = Object.entries(deviceTypesByClass ?? {});
+      const match = entries.find(([, types]) => types?.includes(deviceType));
+      return match ? match[0] : '';
+    },
+    [deviceTypesByClass],
+  );
+
+  const DeviceTypeFields = ({ isEditing }) => {
+    const { values, setFieldValue } = useFormikContext();
+    const selectedGroup = values.deviceGroup;
+    const typesForGroup = selectedGroup ? deviceTypesByClass[selectedGroup] ?? [] : [];
+    const options = typesForGroup.map((deviceType) => ({ value: deviceType, label: deviceType }));
+
+    useEffect(() => {
+      if (!selectedGroup) {
+        setFieldValue('deviceType', '');
+        return;
+      }
+      if (!typesForGroup.includes(values.deviceType)) {
+        setFieldValue('deviceType', typesForGroup[0] ?? '');
+      }
+    }, [selectedGroup, typesForGroup.join(','), values.deviceType, setFieldValue]);
+
+    return (
+      <>
+        <SelectField
+          name="deviceGroup"
+          label="Device Group"
+          options={deviceClasses.map((deviceGroup) => ({
+            value: deviceGroup,
+            label: deviceGroup,
+          }))}
+          isRequired
+          isDisabled={!isEditing}
+        />
+        <SelectField
+          name="deviceType"
+          label={t('inventory.device_type')}
+          options={options}
+          isRequired
+          isDisabled={!isEditing || !selectedGroup}
+        />
+      </>
+    );
+  };
+
   useEffect(() => {
     setFormKey(uuid());
     setIsDeleted(false);
@@ -91,6 +144,7 @@ const EditTagForm = ({
         ...tag,
         entity: getEntityFromData(tag),
         devClass: tag.devClass !== '' ? tag.devClass : 'any',
+        deviceGroup: getDeviceGroupFromType(tag.deviceType) || '',
       }}
       validationSchema={UpdateTagSchema(t)}
       onSubmit={async (
@@ -277,11 +331,13 @@ const EditTagForm = ({
         }
       }}
     >
-      {({ setFieldValue }) => (
+      {({ values, setFieldValue }) => {
+        const isDeviceSelectionComplete = Boolean(values.deviceGroup && values.deviceType);
+        return (
         <Tabs variant="enclosed">
           <TabList flexWrap={{base:'wrap', md: 'nowrap'}}>
             <Tab>{t('common.main')}</Tab>
-            <Tab>{t('configurations.special_configuration')}</Tab>
+            <Tab isDisabled={!isDeviceSelectionComplete}>{t('configurations.special_configuration')}</Tab>
             <Tab>{t('inventory.computed_configuration')}</Tab>
             <Tab>{t('overrides.other')}</Tab>
             <Tab>{t('common.notes')}</Tab>
@@ -294,16 +350,7 @@ const EditTagForm = ({
                   <StringField name="serialNumber" label={t('inventory.serial_number')} isDisabled isRequired />
                   <StringField name="name" label={t('common.name')} isDisabled={!editing} isRequired />
                   <StringField name="description" label={t('common.description')} isDisabled={!editing} />
-                  <SelectField
-                    name="deviceType"
-                    label={t('inventory.device_type')}
-                    options={deviceListWithType.map((deviceType) => ({
-                      value: deviceType,
-                      label: deviceType,
-                    }))}
-                    isRequired
-                    isDisabled={!editing}
-                  />
+                  <DeviceTypeFields isEditing={editing} />
                   <SelectWithSearchField
                     name="entity"
                     label={t('inventory.parent')}
@@ -357,9 +404,10 @@ const EditTagForm = ({
             <TabPanel p={{base: 0, md: 4}}>
               <SpecialConfigurationManager
                 configId={isDeleted ? '' : tag.deviceConfiguration}
-                editing={editing}
+                editing={editing && isDeviceSelectionComplete}
                 onChange={onConfigurationChange}
                 onDelete={() => setIsDeleted(true)}
+                deviceGroup={values.deviceGroup}
               />
             </TabPanel>
             <TabPanel>
@@ -378,7 +426,8 @@ const EditTagForm = ({
             </TabPanel>
           </TabPanels>
         </Tabs>
-      )}
+        );
+      }}
     </Formik>
   );
 };

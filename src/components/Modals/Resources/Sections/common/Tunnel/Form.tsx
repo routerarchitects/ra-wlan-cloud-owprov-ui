@@ -1,6 +1,6 @@
 import * as React from 'react';
 import useFastField from 'hooks/useFastField';
-import TunnelForm from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/Tunnel/Tunnel';
+import TunnelForm from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/SingleInterface/Tunnel/Tunnel';
 
 const TunnelResourceForm = ({ isDisabled }: { isDisabled?: boolean }) => {
   const { value, onChange } = useFastField({ name: `editing` });

@@ -5,19 +5,19 @@ import { Formik, FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import { object, string } from 'yup';
+import TunnelResourceForm from './Form';
 import NotesTable from 'components/CustomFields/NotesTable';
 import StringField from 'components/FormFields/StringField';
 import { useCreateResource, useUpdateResource } from 'hooks/Network/Resources';
 import { Note } from 'models/Note';
 import { Resource } from 'models/Resource';
-import { SINGLE_RADIO_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/RadiosSection/radiosConstants';
-import SingleRadio from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/RadiosSection/SingleRadio';
+import { INTERFACE_TUNNEL_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/interfacesConstants';
 
 export const EDIT_SCHEMA = (t: (str: string) => string) =>
   object().shape({
     _unused_name: string().required(t('form.required')).default(''),
     _unused_description: string().default(''),
-    editing: SINGLE_RADIO_SCHEMA(t),
+    editing: INTERFACE_TUNNEL_SCHEMA(t),
   });
 
 interface Props {
@@ -34,7 +34,15 @@ interface Props {
   };
 }
 
-const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDisabled = false, parent }: Props) => {
+const InterfaceTunnelResource = ({
+  isOpen,
+  onClose,
+  refresh,
+  formRef,
+  resource,
+  isDisabled = false,
+  parent,
+}: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const [formKey, setFormKey] = useState(uuid());
@@ -60,8 +68,8 @@ const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDi
               _unused_notes: resource.notes,
             }
           : {
-              editing: { ...SINGLE_RADIO_SCHEMA(t, true, '2G').cast() },
-              _unused_name: 'Radio',
+              editing: { ...INTERFACE_TUNNEL_SCHEMA(t, true).cast() },
+              _unused_name: 'Tunnel',
               _unused_description: '',
               _unused_notes: [],
             }
@@ -86,7 +94,7 @@ const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDi
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'radio',
+                    prefix: 'interface.tunnel',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -141,7 +149,7 @@ const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDi
                   {
                     type: 'json',
                     weight: 0,
-                    prefix: 'radio',
+                    prefix: 'interface.tunnel',
                     value: {
                       // @ts-ignore
                       ...formData.editing,
@@ -199,11 +207,11 @@ const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDi
         </TabList>
         <TabPanels>
           <TabPanel>
-            <SimpleGrid minChildWidth="300px" spacing="20px" mt={4}>
+            <SimpleGrid minChildWidth="300px" spacing="20px" my={4}>
               <StringField name="_unused_name" label={t('common.name')} isRequired isDisabled={isDisabled} />
               <StringField name="_unused_description" label={t('common.description')} isDisabled={isDisabled} />
             </SimpleGrid>
-            <SingleRadio namePrefix="editing" isDisabled={isDisabled} canEditBand={!resource} />
+            <TunnelResourceForm isDisabled={isDisabled} />
           </TabPanel>
           <TabPanel>
             <NotesTable name="_unused_notes" isDisabled={isDisabled} />
@@ -214,4 +222,4 @@ const SingleRadioResource = ({ isOpen, onClose, refresh, formRef, resource, isDi
   );
 };
 
-export default SingleRadioResource;
+export default InterfaceTunnelResource;

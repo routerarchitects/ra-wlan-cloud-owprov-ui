@@ -1,8 +1,8 @@
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
 import useFastField from 'hooks/useFastField';
-import { INTERFACE_IPV4_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/interfacesConstants';
-import Ipv4Form from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/InterfaceSection/SingleInterface/IpV4/Ipv4';
+import { INTERFACE_IPV4_SCHEMA } from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/interfacesConstants';
+import Ipv4Form from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard/ap/sections/InterfaceSection/SingleInterface/IpV4/Ipv4';
 
 const TunnelIpv4Form = ({ isDisabled }: { isDisabled?: boolean }) => {
   const { t } = useTranslation();

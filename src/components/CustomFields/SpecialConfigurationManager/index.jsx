@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Center, Heading, Spacer } from '@chakra-ui/react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, AlertDescription, AlertIcon, AlertTitle, Box, Button, Center, Heading, Spacer } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import isEqual from 'react-fast-compare';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import ConfigurationSectionsCard from 'pages/ConfigurationPage/ConfigurationCard
 
 const convertConfigManagerData = (form, sections) => {
   if (form === null || sections === null) return null;
+  if (!form?.values) return null;
 
   const newObj = {
     __form: {
@@ -39,6 +40,7 @@ const propTypes = {
   isEnabledByDefault: PropTypes.bool,
   isOnlySections: PropTypes.bool,
   isDeletePossible: PropTypes.bool,
+  deviceGroup: PropTypes.string,
 };
 
 const defaultProps = {
@@ -47,6 +49,7 @@ const defaultProps = {
   isOnlySections: false,
   isDeletePossible: false,
   onDelete: null,
+  deviceGroup: null,
 };
 
 const SpecialConfigurationManager = ({
@@ -57,10 +60,13 @@ const SpecialConfigurationManager = ({
   isEnabledByDefault,
   isOnlySections,
   isDeletePossible,
+  deviceGroup,
 }) => {
   const { t } = useTranslation();
+  const isGroupSupported = !deviceGroup || deviceGroup === 'ap';
   const [sections, setSections] = useState(isEnabledByDefault ? BASE_SECTIONS : null);
   const [form, setForm] = useState(isEnabledByDefault ? {} : null);
+  const hasUserEnabledRef = useRef(isEnabledByDefault);
   const formRef = useCallback(
     (node) => {
       if (
@@ -79,11 +85,13 @@ const SpecialConfigurationManager = ({
   const { data: configuration } = useGetConfiguration({ id: configId });
 
   const handleCreateClick = useCallback(() => {
+    hasUserEnabledRef.current = true;
     setSections(BASE_SECTIONS);
     setForm({});
   }, []);
   const handleDeleteClick = useCallback(() => {
     if (onDelete) onDelete();
+    hasUserEnabledRef.current = false;
     setSections(null);
     setForm(null);
   }, []);
@@ -101,16 +109,40 @@ const SpecialConfigurationManager = ({
     if (configuration) {
       setSections(BASE_SECTIONS);
       setForm({});
-    } else if (!isEnabledByDefault) {
+    } else if (!isEnabledByDefault && !hasUserEnabledRef.current) {
       setSections(null);
       setForm(null);
     }
   }, [configuration]);
 
+  if (!isGroupSupported) {
+    return (
+      <Alert status="warning" variant="left-accent" my={4}>
+        <AlertIcon />
+        <Box>
+          <AlertTitle>Unsupported device group</AlertTitle>
+          <AlertDescription>
+            Device group "{deviceGroup}" is not supported for configuration yet. Please select a supported group.
+          </AlertDescription>
+        </Box>
+      </Alert>
+    );
+  }
+
   if (sections === null || form === null) {
     return (
       <Center>
-        <Button onClick={handleCreateClick} colorScheme="blue" isDisabled={!editing} my={4}>
+        <Button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleCreateClick();
+          }}
+          colorScheme="blue"
+          isDisabled={!editing}
+          my={4}
+        >
           {t('configurations.start_special_creation')}
         </Button>
       </Center>
@@ -135,6 +167,7 @@ const SpecialConfigurationManager = ({
         configId={configId}
         setSections={setSections}
         onDelete={isDeletePossible ? handleDeleteClick : null}
+        deviceGroup={deviceGroup}
       />
     </>
   );
