@@ -14,6 +14,7 @@ import { CreateConfigurationSchema } from 'constants/formSchemas';
 import { ConfigurationProvider } from 'contexts/ConfigurationProvider';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useGetVenues } from 'hooks/Network/Venues';
+import { canEditConfiguration, isDeviceSelectionComplete } from 'utils/deviceGroup';
 
 const propTypes = {
   isOpen: PropTypes.bool.isRequired,
@@ -134,7 +135,7 @@ const CreateConfigurationForm = ({
           value: deviceType,
           label: deviceType,
         }));
-        const isDeviceSelectionComplete = Boolean(values.deviceGroup && values.deviceTypes?.length > 0);
+        const hasDeviceSelection = isDeviceSelectionComplete(values.deviceGroup, undefined, values.deviceTypes);
 
         return (
         <>
@@ -197,8 +198,8 @@ const CreateConfigurationForm = ({
           </SimpleGrid>
           <ConfigurationProvider entityId={getEntityId()}>
             <SpecialConfigurationManager
-              editing={isDeviceSelectionComplete}
-              isEnabledByDefault={isDeviceSelectionComplete}
+              editing={canEditConfiguration(values.deviceGroup, undefined, values.deviceTypes)}
+              isEnabledByDefault={hasDeviceSelection}
               isOnlySections
               onChange={onConfigurationChange}
               deviceGroup={values.deviceGroup}

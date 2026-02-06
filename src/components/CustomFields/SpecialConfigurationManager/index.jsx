@@ -3,6 +3,7 @@ import { Alert, AlertDescription, AlertIcon, AlertTitle, Box, Button, Center, He
 import PropTypes from 'prop-types';
 import isEqual from 'react-fast-compare';
 import { useTranslation } from 'react-i18next';
+import { isSupportedDeviceGroup } from 'utils/deviceGroup';
 import SpecialConfigurationForm from './SpecialConfigurationForm';
 import DeleteButton from 'components/Buttons/DeleteButton';
 import { BASE_SECTIONS } from 'constants/configuration';
@@ -63,7 +64,7 @@ const SpecialConfigurationManager = ({
   deviceGroup,
 }) => {
   const { t } = useTranslation();
-  const isGroupSupported = !deviceGroup || deviceGroup === 'ap';
+  const isGroupSupported = !deviceGroup || isSupportedDeviceGroup(deviceGroup);
   const [sections, setSections] = useState(isEnabledByDefault ? BASE_SECTIONS : null);
   const [form, setForm] = useState(isEnabledByDefault ? {} : null);
   const hasUserEnabledRef = useRef(isEnabledByDefault);

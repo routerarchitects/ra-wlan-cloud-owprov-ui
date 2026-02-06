@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useToast, SimpleGrid } from '@chakra-ui/react';
-import { Formik, Form, useFormikContext } from 'formik';
+import { Formik, Form } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import SpecialConfigurationManager from '../../../CustomFields/SpecialConfigurationManager';
 import DeviceRulesField from 'components/CustomFields/DeviceRulesField';
+import DeviceTypeFields from 'components/Tables/InventoryTable/DeviceTypeFields';
 import SelectField from 'components/FormFields/SelectField';
 import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
@@ -13,6 +14,7 @@ import ToggleField from 'components/FormFields/ToggleField';
 import { CreateTagSchema } from 'constants/formSchemas';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useGetVenues } from 'hooks/Network/Venues';
+import { canEditConfiguration, isDeviceSelectionComplete } from 'utils/deviceGroup';
 
 const propTypes = {
   isOpen: PropTypes.bool.isRequired,
@@ -90,46 +92,6 @@ const CreateTagForm = ({
     setFormKey(uuid());
   }, [isOpen]);
 
-  const DeviceTypeFields = () => {
-    const { values, setFieldValue } = useFormikContext();
-    const selectedGroup = values.deviceGroup;
-    const typesForGroup = selectedGroup ? deviceTypesByClass[selectedGroup] ?? [] : [];
-    const deviceTypeOptions = typesForGroup.map((deviceType) => ({
-      value: deviceType,
-      label: deviceType,
-    }));
-
-    useEffect(() => {
-      if (!selectedGroup) {
-        setFieldValue('deviceType', '');
-        return;
-      }
-      if (!typesForGroup.includes(values.deviceType)) {
-        setFieldValue('deviceType', typesForGroup[0] ?? '');
-      }
-    }, [selectedGroup, typesForGroup.join(','), values.deviceType, setFieldValue]);
-
-    return (
-      <>
-        <SelectField
-          name="deviceGroup"
-          label="Device Group"
-          options={deviceClasses.map((deviceGroup) => ({
-            value: deviceGroup,
-            label: deviceGroup,
-          }))}
-          isRequired
-        />
-        <SelectField
-          name="deviceType"
-          label={t('inventory.device_type')}
-          options={deviceTypeOptions}
-          isRequired
-          isDisabled={!selectedGroup}
-        />
-      </>
-    );
-  };
 
   return (
     <Formik
@@ -200,14 +162,13 @@ const CreateTagForm = ({
       }}
     >
       {({ values }) => {
-        const isDeviceSelectionComplete = Boolean(values.deviceGroup && values.deviceType);
-        const isSupportedGroup = values.deviceGroup === 'ap';
+        const hasDeviceSelection = isDeviceSelectionComplete(values.deviceGroup, values.deviceType);
         return (
           <Form>
         <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
           <StringField name="serialNumber" label={t('inventory.serial_number')} isRequired />
           <StringField name="name" label={t('common.name')} isRequired />
-          <DeviceTypeFields />
+          <DeviceTypeFields deviceClasses={deviceClasses} deviceTypesByClass={deviceTypesByClass} />
           <SelectWithSearchField
             name="entity"
             label={t('inventory.parent')}
@@ -249,7 +210,12 @@ const CreateTagForm = ({
           <StringField name="description" label={t('common.description')} />
           <StringField name="note" label={t('common.note')} />
         </SimpleGrid>
-        <SpecialConfigurationManager editing={isDeviceSelectionComplete && isSupportedGroup} onChange={onConfigurationChange} />
+        <SpecialConfigurationManager
+          editing={canEditConfiguration(values.deviceGroup, values.deviceType)}
+          isEnabledByDefault={hasDeviceSelection}
+          onChange={onConfigurationChange}
+          deviceGroup={values.deviceGroup}
+        />
       </Form>
         );
       }}
