@@ -21,13 +21,14 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
   const { t } = useTranslation();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const errorAmount =
-    errors.globals.length +
-    errors.unit.length +
-    errors.metrics.length +
-    errors.services.length +
-    errors.radios.length +
-    errors.interfaces.length +
-    errors['third-party'].length;
+    (errors.globals ?? []).length +
+    (errors.unit ?? []).length +
+    (errors.metrics ?? []).length +
+    (errors.services ?? []).length +
+    (errors.radios ?? []).length +
+    (errors.ethernet ?? []).length +
+    (errors.interfaces ?? []).length +
+    (errors['third-party'] ?? []).length;
 
   return (
     <>
@@ -61,6 +62,7 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
                   metrics: activeConfigurations.includes('metrics') ? errors.metrics : undefined,
                   services: activeConfigurations.includes('services') ? errors.services : undefined,
                   radios: activeConfigurations.includes('radios') ? errors.radios : undefined,
+                  ethernet: activeConfigurations.includes('ethernet') ? errors.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? errors.interfaces : undefined,
                   'third-party': activeConfigurations.includes('third-party') ? errors['third-party'] : undefined,
                 },

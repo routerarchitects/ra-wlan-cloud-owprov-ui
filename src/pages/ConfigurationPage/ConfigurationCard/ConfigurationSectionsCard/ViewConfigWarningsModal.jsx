@@ -21,13 +21,14 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
   const { t } = useTranslation();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const warningsAmount =
-    warnings.globals.length +
-    warnings.unit.length +
-    warnings.metrics.length +
-    warnings.services.length +
-    warnings.radios.length +
-    warnings.interfaces.length +
-    warnings['third-party'].length;
+    (warnings.globals ?? []).length +
+    (warnings.unit ?? []).length +
+    (warnings.metrics ?? []).length +
+    (warnings.services ?? []).length +
+    (warnings.radios ?? []).length +
+    (warnings.ethernet ?? []).length +
+    (warnings.interfaces ?? []).length +
+    (warnings['third-party'] ?? []).length;
 
   return (
     <>
@@ -60,6 +61,7 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
                   metrics: activeConfigurations.includes('metrics') ? warnings.metrics : undefined,
                   services: activeConfigurations.includes('services') ? warnings.services : undefined,
                   radios: activeConfigurations.includes('radios') ? warnings.radios : undefined,
+                  ethernet: activeConfigurations.includes('ethernet') ? warnings.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? warnings.interfaces : undefined,
                   'third-party': activeConfigurations.includes('third-party') ? warnings['third-party'] : undefined,
                 },

@@ -1,0 +1,114 @@
+import React, { useMemo } from 'react';
+import { Box, Flex, Heading, SimpleGrid, Spacer } from '@chakra-ui/react';
+import { getIn, useFormikContext } from 'formik';
+import PropTypes from 'prop-types';
+import { useTranslation } from 'react-i18next';
+import AdvancedSettings from './AdvancedSettings';
+import Encryption from './Encryption';
+// import LockedSsid from './LockedSsid'; // Temporarily disabled
+import PassPoint from './PassPoint';
+import SsidResourcePicker from './SsidResourcePicker';
+import DeleteButton from 'components/Buttons/DeleteButton';
+import CardBody from 'components/Card/CardBody';
+import MultiSelectField from 'components/FormFields/MultiSelectField';
+import SelectField from 'components/FormFields/SelectField';
+import StringField from 'components/FormFields/StringField';
+
+const propTypes = {
+  index,
+  editing: PropTypes.bool,
+  namePrefix,
+  remove,
+};
+
+const SingleSsid = ({ editing, index, namePrefix, remove }) => {
+  const { t } = useTranslation();
+  const removeSsid = () => remove(index);
+  const { values } = useFormikContext();
+
+  const isUsingCustomRadius = useMemo(() => {
+    const v = getIn(values, `${namePrefix}`);
+    return v !== undefined && v.__variableBlock === undefined;
+  }, [getIn(values, `${namePrefix}`)]);
+  const isPasspoint = useMemo(() => {
+    const v = getIn(values, `${namePrefix}`);
+    return v !== undefined && v['pass-point'] !== undefined;
+  }, [getIn(values, `${namePrefix}`)]);
+
+  return (
+    <>
+      <Flex px={4} py={2}>
+        <Heading size="md" mr={2} pt={2}>
+          #{index}
+        </Heading>
+        <SsidResourcePicker name={namePrefix} isDisabled={!editing} />
+        <Spacer />
+        <DeleteButton isDisabled={!editing} onClick={removeSsid} label={t('configurations.delete_ssid')} />
+      </Flex>
+      <CardBody display="unset">
+        <Box>
+          {isUsingCustomRadius ? (
+            <>
+              <SimpleGrid minChildWidth="300px" spacing="20px" mt={2}>
+                <StringField
+                  name={`${namePrefix}.name`}
+                  label="SSID"
+                  definitionKey="interface.ssid.name"
+                  isDisabled={!editing}
+                  isRequired
+                />
+                <SelectField
+                  name={`${namePrefix}.bss-mode`}
+                  label="bss-mode"
+                  definitionKey="interface.ssid.bss-mode"
+                  isDisabled={!editing}
+                  options={[
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                  ]}
+                  isRequired
+                />
+                <MultiSelectField
+                  name={`${namePrefix}.wifi-bands`}
+                  label="wifi-bands"
+                  definitionKey="interface.ssid.wifi-bands"
+                  isDisabled={!editing}
+                  options={[
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                    { value, label,
+                  ]}
+                  isRequired
+                />
+              </SimpleGrid>
+              <Encryption
+                editing={editing}
+                ssidName={namePrefix}
+                namePrefix={`${namePrefix}.encryption`}
+                radiusPrefix={`${namePrefix}.radius`}
+                isPasspoint={isPasspoint}
+              />
+              <Box my={2}>
+                <PassPoint
+                  isDisabled={!editing}
+                  namePrefix={`${namePrefix}.pass-point`}
+                  radiusPrefix={`${namePrefix}.radius`}
+                />
+              </Box>
+              <AdvancedSettings editing={editing} namePrefix={namePrefix} />
+            </>
+          ) : (
+            <div style={{ padding, background, borderRadius)}
+        </Box>
+      </CardBody>
+    </>
+  );
+};
+
+SingleSsid.propTypes = propTypes;
+export default React.memo(SingleSsid);

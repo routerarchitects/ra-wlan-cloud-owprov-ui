@@ -14,7 +14,7 @@ import { CreateConfigurationSchema } from 'constants/formSchemas';
 import { ConfigurationProvider } from 'contexts/ConfigurationProvider';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useGetVenues } from 'hooks/Network/Venues';
-import { canEditConfiguration, isDeviceSelectionComplete } from 'utils/deviceGroup';
+import { canEditConfiguration } from 'utils/deviceGroup';
 
 const propTypes = {
   isOpen: PropTypes.bool.isRequired,
@@ -26,9 +26,11 @@ const propTypes = {
   deviceClasses: PropTypes.arrayOf(PropTypes.string).isRequired,
   deviceTypesByClass: PropTypes.instanceOf(Object).isRequired,
   onConfigurationChange: PropTypes.func.isRequired,
+  currentConfiguration: PropTypes.instanceOf(Object),
   entityId: PropTypes.string,
 };
 const defaultProps = {
+  currentConfiguration: null,
   entityId: null,
 };
 
@@ -43,6 +45,7 @@ const CreateConfigurationForm = ({
   deviceTypesByClass,
   entityId,
   onConfigurationChange,
+  currentConfiguration,
 }) => {
   const { t } = useTranslation();
   const toast = useToast();
@@ -57,8 +60,9 @@ const CreateConfigurationForm = ({
     return `ven:${splitEntity[1]}`;
   };
 
-  const createParameters = ({ name, description, note, deviceTypes, entity, deviceRules, __CREATE_CONFIG }) => ({
+  const createParameters = ({ name, description, note, deviceGroup, deviceTypes, entity, deviceRules, __CREATE_CONFIG }) => ({
     name,
+    deviceGroup,
     deviceRules,
     deviceTypes,
     description: description.length > 0 ? description : undefined,
@@ -91,8 +95,24 @@ const CreateConfigurationForm = ({
         __CREATE_CONFIG: null,
       }}
       validationSchema={CreateConfigurationSchema(t)}
-      onSubmit={(formData, { setSubmitting, resetForm }) =>
-        create.mutateAsync(createParameters(formData), {
+      onSubmit={(formData, { setSubmitting, resetForm }) => {
+        const configEntries = Array.isArray(currentConfiguration?.data?.configuration)
+          ? currentConfiguration.data.configuration
+          : formData?.__CREATE_CONFIG;
+        if (!Array.isArray(configEntries) || configEntries.length === 0) {
+          toast({
+            id: 'configuration-sections-required',
+            title: t('common.error'),
+            description: t('configurations.start_special_creation'),
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+            position: 'top-right',
+          });
+          setSubmitting(false);
+          return;
+        }
+        create.mutate(createParameters({ ...formData, __CREATE_CONFIG: configEntries }), {
           onSuccess: () => {
             setSubmitting(false);
             resetForm();
@@ -116,7 +136,7 @@ const CreateConfigurationForm = ({
               title: t('common.error'),
               description: t('crud.error_create_obj', {
                 obj: t('configurations.one'),
-                e: e?.response?.data?.ErrorDescription,
+                e: e?.response?.data?.ErrorDescription ?? e?.message ?? 'Unknown error',
               }),
               status: 'error',
               duration: 5000,
@@ -125,8 +145,8 @@ const CreateConfigurationForm = ({
             });
             setSubmitting(false);
           },
-        })
-      }
+        });
+      }}
     >
       {({ errors, touched, setFieldValue, values }) => {
         const selectedGroup = values.deviceGroup;
@@ -135,8 +155,6 @@ const CreateConfigurationForm = ({
           value: deviceType,
           label: deviceType,
         }));
-        const hasDeviceSelection = isDeviceSelectionComplete(values.deviceGroup, undefined, values.deviceTypes);
-
         return (
         <>
           <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
@@ -199,9 +217,16 @@ const CreateConfigurationForm = ({
           <ConfigurationProvider entityId={getEntityId()}>
             <SpecialConfigurationManager
               editing={canEditConfiguration(values.deviceGroup, undefined, values.deviceTypes)}
-              isEnabledByDefault={hasDeviceSelection}
+              isEnabledByDefault={false}
               isOnlySections
-              onChange={onConfigurationChange}
+              onChange={(conf) => {
+                onConfigurationChange(conf);
+                setFieldValue(
+                  '__CREATE_CONFIG',
+                  Array.isArray(conf?.data?.configuration) ? conf.data.configuration : null,
+                  false,
+                );
+              }}
               deviceGroup={values.deviceGroup}
             />
           </ConfigurationProvider>

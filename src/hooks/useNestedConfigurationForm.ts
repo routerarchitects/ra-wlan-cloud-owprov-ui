@@ -20,10 +20,13 @@ const useNestedConfigurationForm = ({
         configuration: null,
       };
 
+    const isDirty = configuration.__form?.isDirty === undefined ? false : configuration.__form.isDirty;
+    const isValid = configuration.__form?.isValid === undefined ? true : configuration.__form.isValid;
+
     return {
-      isDirty: configuration.__form.isDirty === undefined ? false : configuration.__form.isDirty,
-      isValid: configuration.__form.isValid,
-      configuration: configuration.data,
+      isDirty,
+      isValid,
+      configuration: configuration.data ?? null,
     };
   }, [configuration]);
 
@@ -46,7 +49,7 @@ const useNestedConfigurationForm = ({
             isDirty: false,
             isValid: true,
           },
-          configuration: defaultConfiguration,
+          data: defaultConfiguration,
         });
       }
     },

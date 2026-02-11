@@ -19,9 +19,15 @@ const propTypes = {
   editing: PropTypes.bool.isRequired,
   activeSubs: PropTypes.arrayOf(PropTypes.string).isRequired,
   addSub: PropTypes.func.isRequired,
+  subsections: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+    }),
+  ),
 };
 
-const AddSubsectionModal = ({ editing, activeSubs, addSub }) => {
+const AddSubsectionModal = ({ editing, activeSubs, addSub, subsections }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const { t } = useTranslation();
 
@@ -29,6 +35,17 @@ const AddSubsectionModal = ({ editing, activeSubs, addSub }) => {
     addSub(sub);
     onClose();
   };
+
+  const defaultSubsections = [
+    { key: 'globals', label: t('configurations.globals') },
+    { key: 'unit', label: t('configurations.unit') },
+    { key: 'metrics', label: t('configurations.metrics') },
+    { key: 'services', label: t('configurations.services') },
+    { key: 'radios', label: t('configurations.radios') },
+    { key: 'interfaces', label: t('configurations.interfaces') },
+    { key: 'third-party', label: t('configurations.third_party') },
+  ];
+  const sections = subsections ?? defaultSubsections;
 
   return (
     <>
@@ -45,65 +62,17 @@ const AddSubsectionModal = ({ editing, activeSubs, addSub }) => {
           <ModalHeader title={t('configurations.add_subsection')} right={<CloseButton ml={2} onClick={onClose} />} />
           <ModalBody>
             <SimpleGrid minChildWidth="200px" spacing={4}>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('globals')}
-                  onClick={() => addNewSub('globals')}
-                >
-                  {t('configurations.globals')}
-                </Button>
-              </Center>
-              <Center>
-                <Button colorScheme="blue" isDisabled={activeSubs.includes('unit')} onClick={() => addNewSub('unit')}>
-                  {t('configurations.unit')}
-                </Button>
-              </Center>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('metrics')}
-                  onClick={() => addNewSub('metrics')}
-                >
-                  {t('configurations.metrics')}
-                </Button>
-              </Center>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('services')}
-                  onClick={() => addNewSub('services')}
-                >
-                  {t('configurations.services')}
-                </Button>
-              </Center>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('radios')}
-                  onClick={() => addNewSub('radios')}
-                >
-                  {t('configurations.radios')}
-                </Button>
-              </Center>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('interfaces')}
-                  onClick={() => addNewSub('interfaces')}
-                >
-                  {t('configurations.interfaces')}
-                </Button>
-              </Center>
-              <Center>
-                <Button
-                  colorScheme="blue"
-                  isDisabled={activeSubs.includes('third-party')}
-                  onClick={() => addNewSub('third-party')}
-                >
-                  {t('configurations.third_party')}
-                </Button>
-              </Center>
+              {sections.map((section) => (
+                <Center key={section.key}>
+                  <Button
+                    colorScheme="blue"
+                    isDisabled={activeSubs.includes(section.key)}
+                    onClick={() => addNewSub(section.key)}
+                  >
+                    {section.label}
+                  </Button>
+                </Center>
+              ))}
             </SimpleGrid>
           </ModalBody>
         </ModalContent>

@@ -44,7 +44,7 @@ const EditSubscriberDeviceModal = ({
     isDirty: form?.dirty,
     onModalClose: onClose,
   });
-  const { isLoaded, deviceTypes, serviceClasses, subscribers } = useOperatorChildren({
+  const { isLoaded, deviceTypes, deviceClasses, deviceTypesByClass, serviceClasses, subscribers } = useOperatorChildren({
     operatorId,
   });
   const {
@@ -112,6 +112,8 @@ const EditSubscriberDeviceModal = ({
               subscriberDevice={subscriberDeviceData}
               externalData={{
                 deviceTypes,
+                deviceClasses,
+                deviceTypesByClass,
                 serviceClasses,
                 subscribers: subscribers ?? [],
               }}

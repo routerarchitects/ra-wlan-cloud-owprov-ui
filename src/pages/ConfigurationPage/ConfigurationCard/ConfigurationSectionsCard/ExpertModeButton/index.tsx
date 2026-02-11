@@ -17,7 +17,16 @@ import SaveButton from 'components/Buttons/SaveButton';
 import { Modal } from 'components/Modals/Modal';
 import { uppercaseFirstLetter } from 'utils/stringHelper';
 
-const configurationSections = ['globals', 'unit', 'metrics', 'services', 'radios', 'interfaces', 'third-party'];
+const configurationSections = [
+  'globals',
+  'unit',
+  'metrics',
+  'services',
+  'radios',
+  'ethernet',
+  'interfaces',
+  'third-party',
+];
 
 const transformComputedConfigToEditable = (
   config: Record<string, unknown>,

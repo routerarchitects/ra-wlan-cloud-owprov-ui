@@ -10,24 +10,47 @@ import { BASE_SECTIONS } from 'constants/configuration';
 import { useGetConfiguration } from 'hooks/Network/Configurations';
 import ConfigurationSectionsCard from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard';
 
+const SECTION_DEFAULTS = {
+  globals: 'Globals',
+  unit: 'Unit',
+  metrics: 'Metrics',
+  services: 'Services',
+  radios: 'Radios',
+  ethernet: 'Ethernet',
+  interfaces: 'Interfaces',
+  'third-party': 'Third Party',
+};
+
+const getSectionPayloadBase = (conf, sectionData) => ({
+  name: sectionData?.name || SECTION_DEFAULTS[conf] || conf,
+  description: sectionData?.description || '',
+  weight: Number.isFinite(sectionData?.weight) ? sectionData.weight : 1,
+  configuration: {},
+});
+
 const convertConfigManagerData = (form, sections) => {
-  if (form === null || sections === null) return null;
-  if (!form?.values) return null;
+  if (sections === null) return null;
+  const formValues = form?.values ?? {};
+  const formDirty = form?.dirty ?? false;
 
   const newObj = {
     __form: {
-      isDirty: form.dirty || sections.isDirty,
+      isDirty: formDirty || sections.isDirty,
       isValid: sections.invalidValues.length === 0,
     },
     data: {
-      ...form.values,
-      configuration: sections.activeConfigurations.map((conf) => {
-        const deviceConfig = sections.data[conf].data.configuration;
-        const config = { ...sections.data[conf].data, configuration: {} };
-        if (conf === 'interfaces') config.configuration = { interfaces: deviceConfig };
-        else config.configuration[conf] = deviceConfig;
-        return config;
-      }),
+      ...formValues,
+      configuration: sections.activeConfigurations
+        .map((conf) => {
+          const sectionEntry = sections.data[conf];
+          if (!sectionEntry?.data) return null;
+          const deviceConfig = sectionEntry.data.configuration;
+          const config = getSectionPayloadBase(conf, sectionEntry.data);
+          if (conf === 'interfaces') config.configuration = { interfaces: deviceConfig };
+          else config.configuration[conf] = deviceConfig;
+          return config;
+        })
+        .filter(Boolean),
     },
   };
   return newObj;
@@ -64,7 +87,7 @@ const SpecialConfigurationManager = ({
   deviceGroup,
 }) => {
   const { t } = useTranslation();
-  const isGroupSupported = !deviceGroup || isSupportedDeviceGroup(deviceGroup);
+  const isGroupSupported = isSupportedDeviceGroup(deviceGroup);
   const [sections, setSections] = useState(isEnabledByDefault ? BASE_SECTIONS : null);
   const [form, setForm] = useState(isEnabledByDefault ? {} : null);
   const hasUserEnabledRef = useRef(isEnabledByDefault);

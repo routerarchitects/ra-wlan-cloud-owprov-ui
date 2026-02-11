@@ -100,6 +100,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
   const [activeConfigurations, setActiveConfigurations] = useState([]);
 
   const setConfigSectionsFromArray = (arr, shouldValidate) => {
+    if (!Array.isArray(arr)) return;
     setActiveConfigurations([]);
 
     setTimeout(() => {

@@ -28,6 +28,8 @@ interface Props {
   formRef: Ref<FormikProps<Device>> | undefined;
   externalData: {
     deviceTypes: string[];
+    deviceClasses: string[];
+    deviceTypesByClass: Record<string, string[]>;
     serviceClasses: ServiceClass[];
     subscribers: Subscriber[];
   };
@@ -63,7 +65,6 @@ const EditSubscriberDeviceForm = (
   const [formKey, setFormKey] = useState(uuid());
   const updateSubscriberDevice = useUpdateSubscriberDevice({ id: subscriberDevice.id });
 
-  const deviceTypeOptions = useSelectList({ values: externalData.deviceTypes, hasEmpty: true });
   const serviceClassesOptions = useSelectList({
     values: externalData.serviceClasses,
     hasEmpty: true,
@@ -76,6 +77,20 @@ const EditSubscriberDeviceForm = (
     valueKey: 'id',
     labelKey: 'name',
   });
+  const getDeviceGroupFromType = React.useCallback(
+    (deviceType: string) => {
+      if (!deviceType) return '';
+      const entries = Object.entries(externalData.deviceTypesByClass ?? {});
+      const match = entries.find(([, types]) => types?.includes(deviceType));
+      return match ? match[0] : '';
+    },
+    [externalData.deviceTypesByClass],
+  );
+  const defaultGroup =
+    // @ts-ignore
+    (subscriberDevice as { deviceGroup?: string })?.deviceGroup ??
+    getDeviceGroupFromType(subscriberDevice.deviceType) ??
+    (externalData.deviceClasses.includes('ap') ? 'ap' : externalData.deviceClasses[0] ?? '');
 
   useEffect(() => {
     setFormKey(uuid());
@@ -88,6 +103,7 @@ const EditSubscriberDeviceForm = (
       key={formKey}
       initialValues={{
         ...subscriberDevice,
+        deviceGroup: defaultGroup,
         location: {
           ...subscriberDevice.location,
           addressLineOne: subscriberDevice.location.addressLines ? subscriberDevice.location.addressLines[0] : '',
@@ -121,79 +137,103 @@ const EditSubscriberDeviceForm = (
         );
       }}
     >
-      <Tabs variant="enclosed">
-        <TabList>
-          <Tab>{t('common.main')}</Tab>
-          <Tab>{t('locations.one')}</Tab>
-          <Tab>{t('contacts.one')}</Tab>
-          <Tab>{t('common.notes')}</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel>
-            <Form>
-              <Heading size="md" mb={2}>
-                {t('common.identification')}
-              </Heading>
-              <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
-                <StringField name="name" label={t('common.name')} isRequired isDisabled={!editing} />
-                <SelectField
-                  name="subscriberId"
-                  label={t('subscribers.one')}
-                  options={subscriberOptions}
-                  isRequired
-                  isDisabled={!editing}
-                />
-                <StringField name="description" label={t('common.description')} isDisabled={!editing} />
-              </SimpleGrid>
-              <Heading size="md" mb={2}>
-                {t('common.device_details')}
-              </Heading>
-              <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
-                <StringField
-                  name="serialNumber"
-                  label={t('inventory.serial_number')}
-                  isRequired
-                  isDisabled={!editing}
-                />
-                <SelectField
-                  name="deviceType"
-                  label={t('inventory.device_type')}
-                  options={deviceTypeOptions}
-                  isRequired
-                  isDisabled={!editing}
-                />
-                <DeviceRulesField isDisabled={!editing} />
-              </SimpleGrid>
-              <Heading size="md" mb={2}>
-                {t('subscribers.billing_contact_info')}
-              </Heading>
-              <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
-                <SelectField
-                  name="serviceClass"
-                  label={t('service.one')}
-                  options={serviceClassesOptions}
-                  isDisabled={!editing}
-                />
-                <StringField name="billingCode" label={t('service.billing_code')} isDisabled={!editing} />
-              </SimpleGrid>
-              <SubscriberDeviceConfigurationManager
-                editing={editing}
-                onChange={onConfigurationChange}
-                configuration={defaultConfiguration}
-              />
-            </Form>
-          </TabPanel>
-          <TabPanel>
-            <SubscriberDeviceLocationForm editing={editing} />
-          </TabPanel>
-          <TabPanel>
-            <SubscriberDeviceContactForm editing={editing} />
-          </TabPanel>
-          <TabPanel>
-            <NotesTable name="notes" isDisabled={!editing} />
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
+      {({ values, setFieldValue }) => {
+        const selectedGroup = values.deviceGroup as string;
+        const typesForGroup = selectedGroup
+          ? externalData.deviceTypesByClass[selectedGroup] ?? []
+          : externalData.deviceTypes;
+        const base = (typesForGroup?.length ? typesForGroup : externalData.deviceTypes).slice();
+        if (values.deviceType && !base.includes(values.deviceType)) base.push(values.deviceType);
+        const deviceTypeOptions = base.map((deviceType) => ({ value: deviceType, label: deviceType }));
+
+        return (
+          <Tabs variant="enclosed">
+            <TabList>
+              <Tab>{t('common.main')}</Tab>
+              <Tab>{t('locations.one')}</Tab>
+              <Tab>{t('contacts.one')}</Tab>
+              <Tab>{t('common.notes')}</Tab>
+            </TabList>
+            <TabPanels>
+              <TabPanel>
+                <Form>
+                  <Heading size="md" mb={2}>
+                    {t('common.identification')}
+                  </Heading>
+                  <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
+                    <StringField name="name" label={t('common.name')} isRequired isDisabled={!editing} />
+                    <SelectField
+                      name="subscriberId"
+                      label={t('subscribers.one')}
+                      options={subscriberOptions}
+                      isRequired
+                      isDisabled={!editing}
+                    />
+                    <StringField name="description" label={t('common.description')} isDisabled={!editing} />
+                  </SimpleGrid>
+                  <Heading size="md" mb={2}>
+                    {t('common.device_details')}
+                  </Heading>
+                  <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
+                    <StringField
+                      name="serialNumber"
+                      label={t('inventory.serial_number')}
+                      isRequired
+                      isDisabled={!editing}
+                    />
+                    <SelectField
+                      name="deviceGroup"
+                      label="Device Group"
+                      options={externalData.deviceClasses.map((deviceGroup) => ({
+                        value: deviceGroup,
+                        label: deviceGroup,
+                      }))}
+                      isRequired
+                      isDisabled={!editing}
+                      onChangeEffect={() => setFieldValue('deviceType', '')}
+                    />
+                    <SelectField
+                      name="deviceType"
+                      label={t('inventory.device_type')}
+                      options={deviceTypeOptions}
+                      isRequired
+                      isDisabled={!editing || !selectedGroup}
+                    />
+                    <DeviceRulesField isDisabled={!editing} />
+                  </SimpleGrid>
+                  <Heading size="md" mb={2}>
+                    {t('subscribers.billing_contact_info')}
+                  </Heading>
+                  <SimpleGrid minChildWidth="200px" spacing="10px" mb={4}>
+                    <SelectField
+                      name="serviceClass"
+                      label={t('service.one')}
+                      options={serviceClassesOptions}
+                      isDisabled={!editing}
+                    />
+                    <StringField name="billingCode" label={t('service.billing_code')} isDisabled={!editing} />
+                  </SimpleGrid>
+                  <SubscriberDeviceConfigurationManager
+                    editing={editing}
+                    onChange={onConfigurationChange}
+                    configuration={defaultConfiguration}
+                    deviceGroup={selectedGroup}
+                  />
+                </Form>
+              </TabPanel>
+              <TabPanel>
+                <SubscriberDeviceLocationForm editing={editing} />
+              </TabPanel>
+              <TabPanel>
+                <SubscriberDeviceContactForm editing={editing} />
+              </TabPanel>
+              <TabPanel>
+                <NotesTable name="notes" isDisabled={!editing} />
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        );
+      }}
     </Formik>
   );
 };

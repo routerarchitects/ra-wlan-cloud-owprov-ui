@@ -6,6 +6,7 @@ import Card from 'components/Card';
 import CardBody from 'components/Card/CardBody';
 import CardHeader from 'components/Card/CardHeader';
 import ApConfigurationSectionsCard from './ap';
+import SwitchConfigurationSectionsCard from './switch';
 
 const propTypes = {
   configId: PropTypes.string.isRequired,
@@ -27,9 +28,10 @@ const defaultProps = {
 const ConfigurationSectionsCard = (props) => {
   const { t } = useTranslation();
   const { deviceGroup, label } = props;
-  const effectiveGroup = deviceGroup || 'ap';
+  const effectiveGroup = deviceGroup || null;
 
   if (effectiveGroup === 'ap') return <ApConfigurationSectionsCard {...props} />;
+  if (effectiveGroup === 'switch') return <SwitchConfigurationSectionsCard {...props} />;
 
   return (
     <Card>
@@ -44,7 +46,8 @@ const ConfigurationSectionsCard = (props) => {
           <Box>
             <AlertTitle>Unsupported device group</AlertTitle>
             <AlertDescription>
-              Device group "{effectiveGroup}" is not supported for configuration yet. Please select a supported group.
+              Device group "{effectiveGroup ?? 'unknown'}" is not supported for configuration yet. Please select a
+              supported group.
             </AlertDescription>
           </Box>
         </Alert>

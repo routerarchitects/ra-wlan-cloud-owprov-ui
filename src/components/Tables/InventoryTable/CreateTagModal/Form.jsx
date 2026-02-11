@@ -69,6 +69,7 @@ const CreateTagForm = ({
     name,
     description,
     note,
+    deviceGroup,
     deviceType,
     devClass,
     deviceRules,
@@ -78,6 +79,7 @@ const CreateTagForm = ({
     serialNumber: serialNumber.toLowerCase(),
     name,
     deviceRules,
+    deviceGroup,
     deviceType,
     devClass: deviceClass !== '' ? deviceClass : devClass,
     description: description.length > 0 ? description : undefined,
@@ -123,6 +125,7 @@ const CreateTagForm = ({
             name: `device:${formData.serialNumber}`,
             description: 'Created from the Edit Tag menu',
             deviceTypes: [formData.deviceType],
+            deviceGroup: formData.deviceGroup,
           };
         }
         create.mutateAsync(params, {

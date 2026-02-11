@@ -6,21 +6,44 @@ import { useTranslation } from 'react-i18next';
 import { BASE_SECTIONS } from 'constants/configuration';
 import ConfigurationSectionsCard from 'pages/ConfigurationPage/ConfigurationCard/ConfigurationSectionsCard';
 
+const SECTION_DEFAULTS = {
+  globals: 'Globals',
+  unit: 'Unit',
+  metrics: 'Metrics',
+  services: 'Services',
+  radios: 'Radios',
+  ethernet: 'Ethernet',
+  interfaces: 'Interfaces',
+  'third-party': 'Third Party',
+};
+
+const getSectionPayloadBase = (conf, sectionData) => ({
+  name: sectionData?.name || SECTION_DEFAULTS[conf] || conf,
+  description: sectionData?.description || '',
+  weight: Number.isFinite(sectionData?.weight) ? sectionData.weight : 1,
+  configuration: {},
+});
+
 const convertConfigManagerData = (sections) => {
   if (sections === null) return null;
 
+  const invalidValues = Array.isArray(sections.invalidValues) ? sections.invalidValues : [];
   const newObj = {
     __form: {
-      isDirty: sections.isDirty,
-      isValid: sections.invalidValues.length === 0,
+      isDirty: Boolean(sections.isDirty),
+      isValid: invalidValues.length === 0,
     },
-    data: sections.activeConfigurations.map((conf) => {
-      const deviceConfig = sections.data[conf].data.configuration;
-      const config = { ...sections.data[conf].data, configuration: {} };
-      if (conf === 'interfaces') config.configuration = { interfaces: deviceConfig };
-      else config.configuration[conf] = deviceConfig;
-      return config;
-    }),
+    data: sections.activeConfigurations
+      .map((conf) => {
+        const sectionEntry = sections.data?.[conf];
+        if (!sectionEntry?.data) return null;
+        const deviceConfig = sectionEntry.data.configuration;
+        const config = getSectionPayloadBase(conf, sectionEntry.data);
+        if (conf === 'interfaces') config.configuration = { interfaces: deviceConfig };
+        else config.configuration[conf] = deviceConfig;
+        return config;
+      })
+      .filter(Boolean),
   };
   return newObj;
 };
@@ -31,12 +54,14 @@ const propTypes = {
   isEnabledByDefault: PropTypes.bool,
   isDeletePossible: PropTypes.bool,
   configuration: PropTypes.arrayOf(PropTypes.instanceOf(Object)),
+  deviceGroup: PropTypes.string,
 };
 
 const defaultProps = {
   isEnabledByDefault: false,
   isDeletePossible: false,
   configuration: null,
+  deviceGroup: null,
 };
 
 const SubscriberDeviceConfigurationManager = ({
@@ -45,6 +70,7 @@ const SubscriberDeviceConfigurationManager = ({
   isEnabledByDefault,
   isDeletePossible,
   configuration,
+  deviceGroup,
 }) => {
   const { t } = useTranslation();
   const [sections, setSections] = useState(isEnabledByDefault ? BASE_SECTIONS : null);
@@ -88,6 +114,7 @@ const SubscriberDeviceConfigurationManager = ({
       defaultConfig={configuration}
       setSections={setSections}
       onDelete={isDeletePossible ? handleDeleteClick : null}
+      deviceGroup={deviceGroup}
     />
   );
 };

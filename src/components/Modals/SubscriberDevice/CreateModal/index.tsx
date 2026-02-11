@@ -35,7 +35,7 @@ const defaultProps = {
 const CreateSubscriberDeviceModal = ({ refresh, operatorId, subscriberId, devices }: Props) => {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { isLoaded, deviceTypes, serviceClasses, subscribers } = useOperatorChildren({
+  const { isLoaded, deviceTypes, deviceClasses, deviceTypesByClass, serviceClasses, subscribers } = useOperatorChildren({
     operatorId,
   });
   const { form, formRef } = useFormRef();
@@ -117,6 +117,8 @@ const CreateSubscriberDeviceModal = ({ refresh, operatorId, subscriberId, device
           formRef={formRef}
           finishStep={finishStep}
           deviceTypes={deviceTypes}
+          deviceClasses={deviceClasses}
+          deviceTypesByClass={deviceTypesByClass}
           onConfigurationChange={onConfigurationChange}
         />
       );
@@ -137,7 +139,7 @@ const CreateSubscriberDeviceModal = ({ refresh, operatorId, subscriberId, device
         />
       );
     return null;
-  }, [data, step, subscribers, serviceClasses, deviceTypes]);
+  }, [data, step, subscribers, serviceClasses, deviceTypes, deviceClasses, deviceTypesByClass]);
 
   return (
     <>

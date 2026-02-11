@@ -112,7 +112,19 @@ const EditTagForm = ({
       }}
       validationSchema={UpdateTagSchema(t)}
       onSubmit={async (
-        { name, description, notes, entity, deviceType, deviceRules, devClass, state, overrides, doNotAllowOverrides },
+        {
+          name,
+          description,
+          notes,
+          entity,
+          deviceType,
+          deviceGroup,
+          deviceRules,
+          devClass,
+          state,
+          overrides,
+          doNotAllowOverrides,
+        },
         { setSubmitting, resetForm },
       ) => {
         const params = {
@@ -120,6 +132,7 @@ const EditTagForm = ({
           description,
           notes: notes.filter((note) => note.isNew),
           deviceType,
+          deviceGroup,
           deviceRules,
           devClass,
           doNotAllowOverrides,
@@ -198,6 +211,7 @@ const EditTagForm = ({
             name: `device:${tag.serialNumber}`,
             description: 'Created from the Edit Tag menu',
             deviceTypes: [deviceType],
+            deviceGroup,
           };
 
           if (tag.deviceConfiguration === '') params.__newConfig = configToPush;

@@ -33,12 +33,17 @@ const CreateConfigurationModal = ({ refresh, entityId }) => {
   const deviceClasses = deviceTypeInfo?.deviceClasses ?? [];
   const deviceTypesByClass = deviceTypeInfo?.deviceTypesByClass ?? {};
   const [configuration, setConfiguration] = useState(null);
-  const create = useMutation((newObj) =>
-    axiosProv.post('configuration/1', {
+  const create = useMutation((newObj) => {
+    const resolvedConfiguration = newObj?.configuration ?? configuration?.data?.configuration ?? null;
+    if (!Array.isArray(resolvedConfiguration) || resolvedConfiguration.length === 0) {
+      return Promise.reject(new Error('Configuration sections are required'));
+    }
+
+    return axiosProv.post('configuration/1', {
       ...newObj,
-      configuration: configuration?.data.configuration ?? null,
-    }),
-  );
+      configuration: resolvedConfiguration,
+    });
+  });
 
   const onConfigurationChange = useCallback((conf) => setConfiguration(conf), []);
 
@@ -83,6 +88,7 @@ const CreateConfigurationModal = ({ refresh, entityId }) => {
               formRef={formRef}
               entityId={entityId}
               onConfigurationChange={onConfigurationChange}
+              currentConfiguration={configuration}
             />
           </ModalBody>
         </ModalContent>
