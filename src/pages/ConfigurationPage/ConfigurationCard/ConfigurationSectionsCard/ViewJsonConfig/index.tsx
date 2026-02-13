@@ -14,6 +14,7 @@ interface Props {
     unit?: string;
     metrics?: string;
     services?: string;
+    nat?: string;
     radios?: string;
     ethernet?: string;
     interfaces?: {
@@ -38,6 +39,7 @@ const ViewJsonConfigModal: React.FC<Props> = ({ configurations, activeConfigurat
         unit: activeConfigurations.includes('unit') ? configurations.unit : undefined,
         metrics: activeConfigurations.includes('metrics') ? configurations.metrics : undefined,
         services: activeConfigurations.includes('services') ? configurations.services : undefined,
+        nat: activeConfigurations.includes('nat') ? configurations.nat : undefined,
         radios: activeConfigurations.includes('radios') ? configurations.radios : undefined,
         ethernet: activeConfigurations.includes('ethernet') ? configurations.ethernet : undefined,
         'third-party': activeConfigurations.includes('third-party') ? configurations['third-party'] : undefined,

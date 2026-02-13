@@ -25,6 +25,7 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
     (warnings.unit ?? []).length +
     (warnings.metrics ?? []).length +
     (warnings.services ?? []).length +
+    (warnings.nat ?? []).length +
     (warnings.radios ?? []).length +
     (warnings.ethernet ?? []).length +
     (warnings.interfaces ?? []).length +
@@ -60,6 +61,7 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
                   unit: activeConfigurations.includes('unit') ? warnings.unit : undefined,
                   metrics: activeConfigurations.includes('metrics') ? warnings.metrics : undefined,
                   services: activeConfigurations.includes('services') ? warnings.services : undefined,
+                  nat: activeConfigurations.includes('nat') ? warnings.nat : undefined,
                   radios: activeConfigurations.includes('radios') ? warnings.radios : undefined,
                   ethernet: activeConfigurations.includes('ethernet') ? warnings.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? warnings.interfaces : undefined,

@@ -15,6 +15,7 @@ const SECTION_DEFAULTS = {
   unit: 'Unit',
   metrics: 'Metrics',
   services: 'Services',
+  nat: 'Nat',
   radios: 'Radios',
   ethernet: 'Ethernet',
   interfaces: 'Interfaces',
@@ -27,6 +28,33 @@ const getSectionPayloadBase = (conf, sectionData) => ({
   weight: Number.isFinite(sectionData?.weight) ? sectionData.weight : 1,
   configuration: {},
 });
+
+const stripEmptyValues = (input) => {
+  if (Array.isArray(input)) {
+    const cleaned = input.map(stripEmptyValues).filter((v) => v !== undefined);
+    return cleaned.length > 0 ? cleaned : undefined;
+  }
+
+  if (input && typeof input === 'object') {
+    const entries = Object.entries(input)
+      .map(([k, v]) => [k, stripEmptyValues(v)])
+      .filter(([, v]) => v !== undefined);
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined;
+  }
+
+  if (input === '' || input === null || input === undefined) return undefined;
+  return input;
+};
+
+const sanitizeNatRules = (rules = []) =>
+  rules
+    .map((rule) => {
+      const cleaned = stripEmptyValues(rule);
+      if (!cleaned || typeof cleaned !== 'object') return cleaned;
+      const { description, ...rest } = cleaned;
+      return rest;
+    })
+    .filter((rule) => rule && Object.keys(rule).length > 0);
 
 const convertConfigManagerData = (form, sections) => {
   if (sections === null) return null;
@@ -47,6 +75,16 @@ const convertConfigManagerData = (form, sections) => {
           const deviceConfig = sectionEntry.data.configuration;
           const config = getSectionPayloadBase(conf, sectionEntry.data);
           if (conf === 'interfaces') config.configuration = { interfaces: deviceConfig };
+          else if (conf === 'nat') {
+            const snatRules = sanitizeNatRules(deviceConfig?.snat?.rules ?? []);
+            const dnatRules = sanitizeNatRules(deviceConfig?.dnat?.rules ?? []);
+            const natConfig = {};
+            if (snatRules.length > 0) natConfig.snat = { rules: snatRules };
+            if (dnatRules.length > 0) natConfig.dnat = { rules: dnatRules };
+            config.configuration = {
+              nat: natConfig,
+            };
+          }
           else config.configuration[conf] = deviceConfig;
           return config;
         })

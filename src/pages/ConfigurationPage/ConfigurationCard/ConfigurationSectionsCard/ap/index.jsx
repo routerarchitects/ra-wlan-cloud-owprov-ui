@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Center, Heading, Spacer, Spinner, Tab, TabList, TabPanel, TabPanels, Tabs } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import isEqual from 'react-fast-compare';
@@ -46,18 +46,53 @@ const defaultProps = {
   onDelete: null,
 };
 
-const getActiveConfigurations = (configurations) =>
-  configurations.map((config) => Object.keys(JSON.parse(config.configuration))[0]);
+const normalizeConfigurations = (configurations) =>
+  (Array.isArray(configurations) ? configurations : [])
+    .map((config) => {
+      try {
+        const parsed = JSON.parse(config.configuration);
+        const key = Object.keys(parsed)[0];
+        if (!key) return null;
+        return { key, parsed, config };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 
-const getConfigurationData = (configurations, section) => {
-  const data = configurations.find((conf) => Object.keys(JSON.parse(conf.configuration))[0] === section);
+const getActiveConfigurations = (normalizedConfigurations) => normalizedConfigurations.map(({ key }) => key);
+
+const getConfigurationData = (normalizedConfigurations, section) => {
+  const data = normalizedConfigurations.find((conf) => conf.key === section);
+  if (!data) return undefined;
 
   if (section === 'interfaces') {
-    return { ...data, configuration: JSON.parse(data.configuration).interfaces };
+    return { ...data.config, configuration: data.parsed.interfaces };
   }
 
-  return { ...data, configuration: JSON.parse(data.configuration)[section] };
+  return { ...data.config, configuration: data.parsed[section] };
 };
+
+const getNormalizedConfigurationSnapshotFromRaw = (configurations) =>
+  normalizeConfigurations(configurations).map(({ key, config, parsed }) => ({
+    key,
+    name: config?.name ?? '',
+    description: config?.description ?? '',
+    weight: Number.isFinite(config?.weight) ? config.weight : 1,
+    configuration: key === 'interfaces' ? parsed.interfaces : parsed[key],
+  }));
+
+const getNormalizedConfigurationSnapshotFromState = (activeConfigurations, sectionsByKey) =>
+  activeConfigurations.map((key) => {
+    const sectionData = sectionsByKey[key]?.data;
+    return {
+      key,
+      name: sectionData?.name ?? '',
+      description: sectionData?.description ?? '',
+      weight: Number.isFinite(sectionData?.weight) ? sectionData.weight : 1,
+      configuration: sectionData?.configuration,
+    };
+  });
 
 const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDelete, defaultConfig }) => {
   const { t } = useTranslation();
@@ -101,70 +136,67 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
 
   const setConfigSectionsFromArray = (arr, shouldValidate) => {
     if (!Array.isArray(arr)) return;
-    setActiveConfigurations([]);
+    const normalizedConfigs = normalizeConfigurations(arr);
+    const newActiveConfigs = getActiveConfigurations(normalizedConfigs);
 
-    setTimeout(() => {
-      const newActiveConfigs = getActiveConfigurations(arr);
+    if (newActiveConfigs.includes('globals')) {
+      setGlobals({
+        data: getConfigurationData(normalizedConfigs, 'globals'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('unit')) {
+      setUnit({
+        data: getConfigurationData(normalizedConfigs, 'unit'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('metrics')) {
+      setMetrics({
+        data: getConfigurationData(normalizedConfigs, 'metrics'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('services')) {
+      setServices({
+        data: getConfigurationData(normalizedConfigs, 'services'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('radios')) {
+      setRadios({
+        data: getConfigurationData(normalizedConfigs, 'radios'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('interfaces')) {
+      setInterfaces({
+        data: getConfigurationData(normalizedConfigs, 'interfaces'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
+    if (newActiveConfigs.includes('third-party')) {
+      setThirdParty({
+        data: getConfigurationData(normalizedConfigs, 'third-party'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
 
-      if (newActiveConfigs.includes('globals')) {
-        setGlobals({
-          data: getConfigurationData(arr, 'globals'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('unit')) {
-        setUnit({
-          data: getConfigurationData(arr, 'unit'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('metrics')) {
-        setMetrics({
-          data: getConfigurationData(arr, 'metrics'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('services')) {
-        setServices({
-          data: getConfigurationData(arr, 'services'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('radios')) {
-        setRadios({
-          data: getConfigurationData(arr, 'radios'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('interfaces')) {
-        setInterfaces({
-          data: getConfigurationData(arr, 'interfaces'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-      if (newActiveConfigs.includes('third-party')) {
-        setThirdParty({
-          data: getConfigurationData(arr, 'third-party'),
-          isDirty: false,
-          invalidValues: [],
-          shouldValidate,
-        });
-      }
-
-      setActiveConfigurations([...newActiveConfigs]);
-    }, 200);
+    setActiveConfigurations([...newActiveConfigs]);
   };
   const { data: configuration, isFetching } = useGetConfiguration({
     id: configId,
@@ -172,15 +204,37 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
       setConfigSectionsFromArray(data.configuration);
     },
   });
+  const persistedNormalizedConfigurations = useMemo(
+    () => getNormalizedConfigurationSnapshotFromRaw(configuration?.configuration),
+    [configuration?.configuration],
+  );
+  const currentNormalizedConfigurations = useMemo(
+    () =>
+      getNormalizedConfigurationSnapshotFromState(activeConfigurations, {
+        globals,
+        unit,
+        metrics,
+        services,
+        radios,
+        interfaces,
+        'third-party': thirdParty,
+      }),
+    [activeConfigurations, globals, unit, metrics, services, radios, interfaces, thirdParty],
+  );
+  const isConfigurationStructureDirty = useMemo(
+    () => !isEqual(currentNormalizedConfigurations, persistedNormalizedConfigurations),
+    [currentNormalizedConfigurations, persistedNormalizedConfigurations],
+  );
 
   const addSubsection = useCallback(
     (sub) => {
-      const newSubs = activeConfigurations;
-      newSubs.push(sub);
-      setActiveConfigurations([...newSubs]);
-      tabsWithNewConfiguration(sub, newSubs);
+      setActiveConfigurations((prev) => {
+        const newSubs = [...prev, sub];
+        tabsWithNewConfiguration(sub, newSubs);
+        return newSubs;
+      });
     },
-    [activeConfigurations, setActiveConfigurations],
+    [setActiveConfigurations, tabsWithNewConfiguration],
   );
 
   const removeSub = useCallback(
@@ -245,7 +299,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
       setActiveConfigurations([...newSubs]);
       tabsRemovedConfiguration();
     },
-    [activeConfigurations, setActiveConfigurations],
+    [activeConfigurations, setActiveConfigurations, t, tabsRemovedConfiguration],
   );
 
   const importConfig = (newConf) => {
@@ -253,76 +307,23 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
   };
 
   useEffect(() => {
-    if (!editing && configuration) {
-      const newActiveConfigs = getActiveConfigurations(configuration.configuration);
-
-      if (newActiveConfigs.includes('globals')) {
-        setGlobals({
-          data: getConfigurationData(configuration.configuration, 'globals'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('unit')) {
-        setUnit({
-          data: getConfigurationData(configuration.configuration, 'unit'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('metrics')) {
-        setMetrics({
-          data: getConfigurationData(configuration.configuration, 'metrics'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('services')) {
-        setServices({
-          data: getConfigurationData(configuration.configuration, 'services'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('radios')) {
-        setRadios({
-          data: getConfigurationData(configuration.configuration, 'radios'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('interfaces')) {
-        setInterfaces({
-          data: getConfigurationData(configuration.configuration, 'interfaces'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-      if (newActiveConfigs.includes('third-party')) {
-        setThirdParty({
-          data: getConfigurationData(configuration.configuration, 'third-party'),
-          isDirty: false,
-          invalidValues: [],
-        });
-      }
-
-      setActiveConfigurations(newActiveConfigs);
-    }
+    if (!editing && configuration) setConfigSectionsFromArray(configuration.configuration);
   }, [editing]);
 
   useEffect(() => {
+    const finalDirty =
+      globals.isDirty ||
+      unit.isDirty ||
+      metrics.isDirty ||
+      services.isDirty ||
+      radios.isDirty ||
+      interfaces.isDirty ||
+      thirdParty.isDirty ||
+      isConfigurationStructureDirty;
+
     setSections({
       isLoaded: true,
-      isDirty:
-        globals.isDirty ||
-        unit.isDirty ||
-        metrics.isDirty ||
-        services.isDirty ||
-        radios.isDirty ||
-        interfaces.isDirty ||
-        thirdParty.isDirty ||
-        activeConfigurations.length !==
-          (configuration ? getActiveConfigurations(configuration?.configuration).length : 0),
+      isDirty: finalDirty,
       invalidValues: [
         ...globals.invalidValues,
         ...unit.invalidValues,
@@ -346,7 +347,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
         'third-party': thirdParty,
       },
     });
-  }, [globals, unit, metrics, services, radios, interfaces, thirdParty, activeConfigurations, configuration]);
+  }, [globals, unit, metrics, services, radios, interfaces, thirdParty, activeConfigurations, isConfigurationStructureDirty]);
 
   useEffect(() => {
     if (defaultConfig !== null) setConfigSectionsFromArray(defaultConfig);

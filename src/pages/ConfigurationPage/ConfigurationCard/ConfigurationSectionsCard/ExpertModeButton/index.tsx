@@ -22,6 +22,7 @@ const configurationSections = [
   'unit',
   'metrics',
   'services',
+  'nat',
   'radios',
   'ethernet',
   'interfaces',

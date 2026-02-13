@@ -6,6 +6,7 @@ import Card from 'components/Card';
 import CardBody from 'components/Card/CardBody';
 import CardHeader from 'components/Card/CardHeader';
 import ApConfigurationSectionsCard from './ap';
+import OlgConfigurationSectionsCard from './olg';
 import SwitchConfigurationSectionsCard from './switch';
 
 const propTypes = {
@@ -31,6 +32,7 @@ const ConfigurationSectionsCard = (props) => {
   const effectiveGroup = deviceGroup || 'ap';
 
   if (effectiveGroup === 'ap') return <ApConfigurationSectionsCard {...props} />;
+  if (effectiveGroup === 'olg') return <OlgConfigurationSectionsCard {...props} />;
   if (effectiveGroup === 'switch') return <SwitchConfigurationSectionsCard {...props} />;
 
   return (

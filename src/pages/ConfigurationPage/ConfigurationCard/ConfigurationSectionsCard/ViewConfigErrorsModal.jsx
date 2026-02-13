@@ -25,6 +25,7 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
     (errors.unit ?? []).length +
     (errors.metrics ?? []).length +
     (errors.services ?? []).length +
+    (errors.nat ?? []).length +
     (errors.radios ?? []).length +
     (errors.ethernet ?? []).length +
     (errors.interfaces ?? []).length +
@@ -61,6 +62,7 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
                   unit: activeConfigurations.includes('unit') ? errors.unit : undefined,
                   metrics: activeConfigurations.includes('metrics') ? errors.metrics : undefined,
                   services: activeConfigurations.includes('services') ? errors.services : undefined,
+                  nat: activeConfigurations.includes('nat') ? errors.nat : undefined,
                   radios: activeConfigurations.includes('radios') ? errors.radios : undefined,
                   ethernet: activeConfigurations.includes('ethernet') ? errors.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? errors.interfaces : undefined,
