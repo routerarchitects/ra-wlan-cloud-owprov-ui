@@ -87,7 +87,7 @@ const SpecialConfigurationManager = ({
   deviceGroup,
 }) => {
   const { t } = useTranslation();
-  const isGroupSupported = isSupportedDeviceGroup(deviceGroup);
+  const isGroupSupported = !deviceGroup || isSupportedDeviceGroup(deviceGroup);
   const [sections, setSections] = useState(isEnabledByDefault ? BASE_SECTIONS : null);
   const [form, setForm] = useState(isEnabledByDefault ? {} : null);
   const hasUserEnabledRef = useRef(isEnabledByDefault);
