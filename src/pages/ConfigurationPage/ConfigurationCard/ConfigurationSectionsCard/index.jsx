@@ -28,7 +28,7 @@ const defaultProps = {
 const ConfigurationSectionsCard = (props) => {
   const { t } = useTranslation();
   const { deviceGroup, label } = props;
-  const effectiveGroup = deviceGroup || null;
+  const effectiveGroup = deviceGroup || 'ap';
 
   if (effectiveGroup === 'ap') return <ApConfigurationSectionsCard {...props} />;
   if (effectiveGroup === 'switch') return <SwitchConfigurationSectionsCard {...props} />;
