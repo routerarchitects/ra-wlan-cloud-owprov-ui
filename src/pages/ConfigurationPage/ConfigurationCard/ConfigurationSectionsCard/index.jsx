@@ -29,11 +29,16 @@ const defaultProps = {
 const ConfigurationSectionsCard = (props) => {
   const { t } = useTranslation();
   const { deviceGroup, label } = props;
-  const effectiveGroup = deviceGroup || 'ap';
+  const normalizedGroup = (deviceGroup ?? '').trim().toLowerCase();
+  const effectiveGroup = normalizedGroup;
 
   if (effectiveGroup === 'ap') return <ApConfigurationSectionsCard {...props} />;
   if (effectiveGroup === 'olg') return <OlgConfigurationSectionsCard {...props} />;
   if (effectiveGroup === 'switch') return <SwitchConfigurationSectionsCard {...props} />;
+
+  // Keep unsupported groups explicit to avoid rendering the wrong schema/UI.
+  // eslint-disable-next-line no-console
+  console.warn('[ConfigurationSectionsCard] Unsupported device group:', deviceGroup);
 
   return (
     <Card>
@@ -48,7 +53,7 @@ const ConfigurationSectionsCard = (props) => {
           <Box>
             <AlertTitle>Unsupported device group</AlertTitle>
             <AlertDescription>
-              Device group "{effectiveGroup ?? 'unknown'}" is not supported for configuration yet. Please select a
+              Device group "{deviceGroup ?? 'unknown'}" is not supported for configuration yet. Please select a
               supported group.
             </AlertDescription>
           </Box>
