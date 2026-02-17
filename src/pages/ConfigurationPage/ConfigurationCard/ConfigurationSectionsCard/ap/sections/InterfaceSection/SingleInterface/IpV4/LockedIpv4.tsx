@@ -113,7 +113,7 @@ const LockedIpv4 = ({ variableBlockId }: { variableBlockId?: string }) => {
             label="addressing"
             options={[
               { value: 'static', label: 'static' },
-              { value: 'static', label: 'dhcp' },
+              { value: 'dynamic', label: 'dhcp' },
             ]}
           />
           {data?.['port-forward'] && (
