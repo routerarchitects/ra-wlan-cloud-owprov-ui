@@ -13,7 +13,6 @@ import StringField from 'components/FormFields/StringField';
 import ToggleField from 'components/FormFields/ToggleField';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import { Modal } from 'components/Modals/Modal';
-import { testObjectName } from 'constants/formTests';
 import { useGetAnalyticsBoard, useUpdateAnalyticsBoard } from 'hooks/Network/Analytics';
 import useFormRef from 'hooks/useFormRef';
 import { AxiosError } from 'models/Axios';
@@ -41,10 +40,11 @@ const ViewAnalyticsSettingsModal = ({ boardId, venueId }: Props) => {
     monitorSubVenues: boolean;
   }>();
   const closeModal = () => (form.dirty ? openConfirm() : modalProps.onClose());
+  const testMonitoringName = (str?: string) => (str ? str.length <= 254 : false);
 
   const Schema = Yup.object()
     .shape({
-      name: Yup.string().required(t('form.required')).test('len', t('common.name_error'), testObjectName),
+      name: Yup.string().required(t('form.required')).test('len', t('analytics.monitoring_name_error'), testMonitoringName),
       interval: Yup.number().required(t('form.required')).moreThan(0).integer(),
       retention: Yup.number().required(t('form.required')).moreThan(0).integer(),
     })

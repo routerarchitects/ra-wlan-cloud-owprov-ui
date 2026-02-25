@@ -85,6 +85,7 @@
     "missing_board": "Analytics monitoring on this venue is no longer active. Click here to restart monitoring",
     "mode": "Mode",
     "monitoring": "Monitoring",
+    "monitoring_name_error": "Name must be less than 254 characters long",
     "no_board": "No Monitoring",
     "no_board_description": "You are not monitoring this Venue at the moment, click here to start",
     "noise": "Noise",

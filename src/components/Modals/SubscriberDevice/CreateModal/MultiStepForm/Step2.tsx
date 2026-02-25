@@ -42,7 +42,7 @@ const CreateSubscriberDeviceStep2 = (
         addressLineOne:
           found.location.addressLines && found.location.addressLines[0] ? found.location.addressLines[0] : '',
         addressLineTwo:
-          found.location.addressLines && found.location.addressLines.length >= 1 ? found.location.addressLines[1] : '',
+          found.location.addressLines && found.location.addressLines.length >= 2 ? found.location.addressLines[1] : '',
       });
   };
 

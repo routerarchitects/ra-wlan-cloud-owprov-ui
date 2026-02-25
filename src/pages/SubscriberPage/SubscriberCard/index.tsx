@@ -12,6 +12,7 @@ import Card from 'components/Card';
 import CardBody from 'components/Card/CardBody';
 import CardHeader from 'components/Card/CardHeader';
 import LoadingOverlay from 'components/LoadingOverlay';
+import { useGetOperator } from 'hooks/Network/Operators';
 import { useGetSubscriber } from 'hooks/Network/Subscribers';
 import useFormRef from 'hooks/useFormRef';
 
@@ -22,6 +23,11 @@ interface Props {
 const SubscriberCard: React.FC<Props> = ({ id }) => {
   const [editing, setEditing] = useBoolean();
   const { data: subscriber, refetch, isFetching } = useGetSubscriber({ id });
+  const isWaitingForEmailVerification = !!subscriber?.waitingForEmailCheck;
+  const { data: operator } = useGetOperator({
+    enabled: isWaitingForEmailVerification && !!subscriber?.owner,
+    id: subscriber?.owner ?? '',
+  });
   const { form, formRef } = useFormRef();
 
   return (
@@ -32,8 +38,9 @@ const SubscriberCard: React.FC<Props> = ({ id }) => {
         <WaitingForVerification
           subscriber={subscriber}
           refresh={refetch}
-          isWaitingForEmailVerification={subscriber?.waitingForEmailCheck}
+          isWaitingForEmailVerification={isWaitingForEmailVerification}
           isDisabled={editing}
+          registrationId={operator?.registrationId}
         />
         <Spacer />
         <Box>

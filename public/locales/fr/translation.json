@@ -84,6 +84,7 @@
 		"missing_board": "La surveillance analytique sur ce site n'est plus active. Cliquez ici pour redémarrer la surveillance",
 		"mode": "Mode",
 		"monitoring": "surveillance",
+		"monitoring_name_error": "Le nom doit comporter moins de 254 caractères",
 		"no_board": "Aucune surveillance",
 		"no_board_description": "Vous ne surveillez pas ce lieu pour le moment, cliquez ici pour commencer",
 		"noise": "Bruit",

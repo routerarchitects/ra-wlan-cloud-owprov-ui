@@ -9,24 +9,24 @@ import {
   Button,
   useDisclosure,
 } from '@chakra-ui/react';
-import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import WarningButton from 'components/Buttons/WarningButton';
 import { useSendSubscriberEmailValidation } from 'hooks/Network/Subscribers';
 import { Subscriber } from 'models/Subscriber';
-import { axiosProv } from 'utils/axiosInstances';
 
 interface Props {
   subscriber?: Subscriber;
   isWaitingForEmailVerification?: boolean;
   isDisabled?: boolean;
   refresh: () => void;
+  registrationId?: string;
 }
 
 const defaultProps = {
   subscriber: undefined,
   isWaitingForEmailVerification: false,
   isDisabled: false,
+  registrationId: undefined,
 };
 
 const WaitingForVerificationNotification = (
@@ -34,7 +34,8 @@ const WaitingForVerificationNotification = (
     subscriber,
     isWaitingForEmailVerification,
     isDisabled,
-    refresh
+    refresh,
+    registrationId,
   }: Props
 ) => {
   const { t } = useTranslation();
@@ -44,17 +45,6 @@ const WaitingForVerificationNotification = (
     onClose();
   };
   const { mutateAsync: sendValidation, isLoading } = useSendSubscriberEmailValidation({ refresh: onSuccess });
-  const { data: registrationId } = useQuery(
-    ['subscriber-registration-id', subscriber?.owner],
-    () =>
-      axiosProv
-        .get(`operator/${subscriber?.owner ?? ''}`)
-        .then(({ data }: { data: { registrationId: string } }) => data.registrationId),
-    {
-      enabled: !!isWaitingForEmailVerification && !!subscriber?.owner,
-      staleTime: 30000,
-    },
-  );
   const canSendValidation = !!subscriber?.email && !!registrationId;
 
   const handleValidationClick = () =>

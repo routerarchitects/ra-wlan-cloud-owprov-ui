@@ -84,6 +84,7 @@
 		"missing_board": "El monitoreo analítico en este lugar ya no está activo. Haga clic aquí para reiniciar el monitoreo",
 		"mode": "Modo",
 		"monitoring": "Vigilancia",
+		"monitoring_name_error": "El nombre debe tener menos de 254 caracteres",
 		"no_board": "Sin monitoreo",
 		"no_board_description": "No está monitoreando este lugar en este momento, haga clic aquí para comenzar",
 		"noise": "Ruido",

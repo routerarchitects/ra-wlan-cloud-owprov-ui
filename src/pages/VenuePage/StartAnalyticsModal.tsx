@@ -11,7 +11,6 @@ import StringField from 'components/FormFields/StringField';
 import ToggleField from 'components/FormFields/ToggleField';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import { Modal } from 'components/Modals/Modal';
-import { testObjectName } from 'constants/formTests';
 import { useCreateAnalyticsBoard } from 'hooks/Network/Analytics';
 import { useGetVenue, useUpdateVenue } from 'hooks/Network/Venues';
 import useFormRef from 'hooks/useFormRef';
@@ -39,10 +38,11 @@ const StartAnalyticsModal = ({ id }: Props) => {
   const { isOpen: isConfirmOpen, onOpen: openConfirm, onClose: closeConfirm } = useDisclosure();
   const { form, formRef } = useFormRef<FormValues>();
   const closeModal = () => (form.dirty ? openConfirm() : modalProps.onClose());
+  const testMonitoringName = (str?: string) => (str ? str.length <= 254 : false);
 
   const Schema = Yup.object()
     .shape({
-      name: Yup.string().required(t('form.required')).test('len', t('common.name_error'), testObjectName),
+      name: Yup.string().required(t('form.required')).test('len', t('analytics.monitoring_name_error'), testMonitoringName),
       interval: Yup.number().required(t('form.required')).moreThan(0).integer(),
       retention: Yup.number().required(t('form.required')).moreThan(0).integer(),
     })

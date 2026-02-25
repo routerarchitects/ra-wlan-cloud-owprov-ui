@@ -84,6 +84,7 @@
 		"missing_board": "Analytics-Überwachung an diesem Ort ist nicht mehr aktiv. Klicken Sie hier, um die Überwachung neu zu starten",
 		"mode": "Modus",
 		"monitoring": "Überwachung",
+		"monitoring_name_error": "Der Name muss weniger als 254 Zeichen lang sein",
 		"no_board": "Keine Überwachung",
 		"no_board_description": "Sie überwachen diesen Veranstaltungsort derzeit nicht, klicken Sie hier, um zu beginnen",
 		"noise": "Lärm",
