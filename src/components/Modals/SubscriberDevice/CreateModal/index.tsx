@@ -20,11 +20,9 @@ import useNestedConfigurationForm from 'hooks/useNestedConfigurationForm';
 import useOperatorChildren from 'hooks/useOperatorChildren';
 import { Configuration } from 'models/Configuration';
 import { Device, EditDevice } from 'models/Device';
-import { axiosProv } from 'utils/axiosInstances';
 
 const defaultConfiguration: Configuration[] = [];
 const LAST_STEP = 3;
-const ROOT_ENTITY_ID = '0000-0000-0000';
 const getStepFromError = (errorDescription: string): number | undefined => {
   const msg = errorDescription.toLowerCase();
 
@@ -92,39 +90,15 @@ const CreateSubscriberDeviceModal = ({ refresh, operatorId, subscriberId, device
     const selectedSubscriberId = (finalData.subscriberId as string) ?? subscriberId;
     const subscriberPrimaryEmail = (subscribers ?? []).find((sub) => sub.id === selectedSubscriberId)?.email ?? '';
     const contactData = (finalData.contact as Record<string, unknown>) ?? {};
-    const sanitizedFinalData = { ...finalData };
-    delete sanitizedFinalData.note;
-    delete sanitizedFinalData.configuration;
 
     try {
-      let configurationId = (sanitizedFinalData.configurationId as string | undefined) ?? '';
-      const hasInlineConfiguration = Array.isArray(configuration) && configuration.length > 0;
-
-      if (!configurationId && hasInlineConfiguration) {
-        const { data: createdConfiguration } = await axiosProv.post('configuration/1', {
-          name: `subscriber-device:${(sanitizedFinalData.serialNumber as string) ?? Date.now().toString()}`,
-          description: 'Created from the Subscriber Device create modal',
-          deviceTypes: [(sanitizedFinalData.deviceType as string) ?? ''],
-          deviceGroup: (sanitizedFinalData.deviceGroup as string) ?? '',
-          deviceRules: (sanitizedFinalData.deviceRules as Record<string, unknown>) ?? {
-            rrm: 'inherit',
-            rcOnly: 'inherit',
-            firmwareUpgrade: 'inherit',
-          },
-          entity: ROOT_ENTITY_ID,
-          venue: '',
-          configuration,
-        });
-        configurationId = createdConfiguration?.id ?? '';
-      }
-
       await create.mutateAsync({
-        ...sanitizedFinalData,
+        ...finalData,
         contact: {
           ...contactData,
           primaryEmail: subscriberPrimaryEmail,
         },
-        configurationId: configurationId || undefined,
+        configuration: configuration ?? [],
       } as EditDevice);
       onSuccess({});
     } catch (e) {
