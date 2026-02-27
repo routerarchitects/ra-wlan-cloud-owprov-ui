@@ -47,6 +47,7 @@ export interface Device {
   id: string;
   serialNumber: string;
   deviceType: string;
+  deviceConfiguration?: string;
   location: DeviceLocation;
   contact: DeviceContact;
   configuration?: DeviceConfiguration;
@@ -63,6 +64,7 @@ export interface EditDevice {
   };
   serialNumber?: string;
   configuration?: Configuration[];
+  deviceConfiguration?: string;
   notes?: Note[];
 }
 

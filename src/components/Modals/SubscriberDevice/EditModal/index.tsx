@@ -1,5 +1,6 @@
-import React, { Ref, useEffect } from 'react';
+import React, { Ref, useEffect, useMemo } from 'react';
 import { Modal, ModalOverlay, ModalContent, ModalBody, Spinner, Center, useBoolean } from '@chakra-ui/react';
+import { useQuery } from '@tanstack/react-query';
 import { FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
 import EditSubscriberDeviceForm from './Form';
@@ -14,7 +15,9 @@ import useFormModal from 'hooks/useFormModal';
 import useFormRef from 'hooks/useFormRef';
 import useNestedConfigurationForm from 'hooks/useNestedConfigurationForm';
 import useOperatorChildren from 'hooks/useOperatorChildren';
+import { Configuration } from 'models/Configuration';
 import { Device } from 'models/Device';
+import { axiosProv } from 'utils/axiosInstances';
 
 interface Props {
   isOpen: boolean;
@@ -55,12 +58,45 @@ const EditSubscriberDeviceModal = ({
     id: subscriberDevice?.id ?? '',
     enabled: subscriberDevice?.id !== '' && isOpen,
   });
+  const subscriberDeviceConfigurationId = (
+    subscriberDeviceData as
+      | {
+          deviceConfiguration?: string;
+          extendedInfo?: { deviceConfiguration?: { id?: string } };
+        }
+      | undefined
+  )?.deviceConfiguration
+    ?? (subscriberDeviceData as { extendedInfo?: { deviceConfiguration?: { id?: string } } } | undefined)?.extendedInfo
+      ?.deviceConfiguration?.id
+    ?? '';
+  const hasConfigurationId = subscriberDeviceConfigurationId !== '';
+  const { data: subscriberDeviceConfiguration, isFetching: isFetchingConfiguration } = useQuery(
+    ['get-subscriber-device-configuration', subscriberDeviceConfigurationId],
+    () =>
+      axiosProv
+        .get(`configuration/${subscriberDeviceConfigurationId}?withExtendedInfo=true`)
+        .then(({ data: configurationData }) => configurationData),
+    {
+      enabled: isOpen && hasConfigurationId,
+      retry: false,
+    },
+  );
+  const resolvedDefaultConfiguration = useMemo(() => {
+    const directConfiguration = (subscriberDeviceData as { configuration?: Configuration[] } | undefined)?.configuration;
+    if (Array.isArray(directConfiguration) && directConfiguration.length > 0) return directConfiguration;
+
+    const mappedConfiguration = (subscriberDeviceConfiguration as { configuration?: Configuration[] } | undefined)
+      ?.configuration;
+    if (Array.isArray(mappedConfiguration)) return mappedConfiguration;
+
+    return undefined;
+  }, [subscriberDeviceData, subscriberDeviceConfiguration]);
   const {
     data: { configuration, isDirty: isConfigurationDirty, isValid: isConfigurationValid },
     onChange: onConfigurationChange,
     reset,
     // @ts-ignore
-  } = useNestedConfigurationForm({ defaultConfiguration: subscriberDeviceData?.configuration ?? undefined });
+  } = useNestedConfigurationForm({ defaultConfiguration: resolvedDefaultConfiguration });
 
   const refreshAfterUpdate = () => {
     reset();
@@ -106,7 +142,11 @@ const EditSubscriberDeviceModal = ({
           }
         />
         <ModalBody>
-          {isOpen && isLoaded && !isLoading && subscriberDeviceData !== undefined ? (
+          {isOpen &&
+          isLoaded &&
+          !isLoading &&
+          (!hasConfigurationId || !isFetchingConfiguration) &&
+          subscriberDeviceData !== undefined ? (
             <EditSubscriberDeviceForm
               editing={editing}
               subscriberDevice={subscriberDeviceData}
@@ -125,8 +165,7 @@ const EditSubscriberDeviceModal = ({
               refresh={refreshAfterUpdate}
               formRef={formRef as Ref<FormikProps<Device>> | undefined}
               configuration={configuration || undefined}
-              // @ts-ignore
-              defaultConfiguration={subscriberDeviceData.configuration}
+              defaultConfiguration={resolvedDefaultConfiguration}
               onConfigurationChange={onConfigurationChange}
             />
           ) : (
