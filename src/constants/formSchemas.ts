@@ -482,7 +482,6 @@ export const CreateOperatorSchema = (t: (str: string) => string) =>
     description: Yup.string(),
     deviceRules: DeviceRulesSchema(t).required('form.required'),
     registrationId: Yup.string().required(t('form.required')),
-    entityId: Yup.string().required(t('form.required')),
     sourceIP: Yup.array().of(Yup.string()),
   });
 export const EditOperatorSchema = (t: (str: string) => string) =>
@@ -490,6 +489,5 @@ export const EditOperatorSchema = (t: (str: string) => string) =>
     name: Yup.string().required(t('form.required')).test('name_test', t('common.name_error'), testObjectName),
     description: Yup.string(),
     deviceRules: DeviceRulesSchema(t).required('form.required'),
-    entityId: Yup.string().required(t('form.required')),
     sourceIP: Yup.array().of(Yup.string()),
   });

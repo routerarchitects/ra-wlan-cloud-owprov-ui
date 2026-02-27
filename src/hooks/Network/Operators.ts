@@ -10,34 +10,39 @@ import { axiosProv } from 'utils/axiosInstances';
 
 export type CreateOperatorRequest = {
   deviceRules: DeviceRules;
-  entityId: string;
-  sourceIp: string;
+  sourceIP: string[];
   registrationId: string;
   description?: string;
+  firmwareRCOnly?: boolean;
   name: string;
   notes?: Note[];
 };
 
 export type UpdateOperatorRequest = {
   defaultOperator?: boolean;
-  devicesRules?: DeviceRules;
-  entityId?: string;
+  deviceRules?: DeviceRules;
+  description?: string;
+  firmwareRCOnly?: boolean;
   name?: string;
   notes?: Note[];
   registrationId?: string;
+  sourceIP?: string[];
 };
 
 export type OperatorApiResponse = {
   created: number;
   defaultOperator: boolean;
-  devicesRules: DeviceRules;
+  description?: string;
+  deviceRules: DeviceRules;
   entityId?: string;
   extendedInfo?: Record<string, unknown>;
+  firmwareRCOnly?: boolean;
   id: string;
   modified: number;
   name: string;
   notes: Note[];
   registrationId: string;
+  sourceIP?: string[];
 };
 
 export const useGetOperatorCount = ({ enabled }: { enabled: boolean }) => {

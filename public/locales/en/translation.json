@@ -915,7 +915,7 @@
     "radius_endpoint_other": "Radius Endpoints"
   },
   "operator": {
-    "associate_entity": "Associate with Entity",
+    "associate_entity": "Associated Entity",
     "delete_explanation": "Are you sure you want to delete this operator? This operation is not reversible",
     "delete_operator": "Delete Operator",
     "import_location_from_device": "Import from other Device",

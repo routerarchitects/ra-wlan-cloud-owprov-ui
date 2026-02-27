@@ -6,10 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import DeviceRulesField from 'components/CustomFields/DeviceRulesField';
 import IpDetectionModalField from 'components/CustomFields/IpDetectionModalField';
-import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import { CreateOperatorSchema } from 'constants/formSchemas';
-import { useGetEntities } from 'hooks/Network/Entity';
 import { useCreateOperator } from 'hooks/Network/Operators';
 import useMutationResult from 'hooks/useMutationResult';
 
@@ -29,16 +27,13 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
     refresh,
     onClose,
   });
-  const { data: entities } = useGetEntities();
   const create = useCreateOperator();
-  const entityOptions = entities?.map((ent) => ({ value: ent.id, label: `${ent.name}${ent.description ? `: ${ent.description}` : ''}` })) ?? [];
 
-  const createParameters = ({ name, description, note, sourceIP, deviceRules, firmwareRCOnly, registrationId, entityId }) => ({
+  const createParameters = ({ name, description, note, sourceIP, deviceRules, firmwareRCOnly, registrationId }) => ({
     name,
     deviceRules,
     sourceIP,
     registrationId,
-    entityId,
     description,
     firmwareRCOnly,
     notes: note.length > 0 ? [{ note }] : undefined,
@@ -61,7 +56,6 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
           firmwareUpgrade: 'inherit',
         },
         registrationId: '',
-        entityId: '',
         firmwareRCOnly: false,
         sourceIP: [],
         note: '',
@@ -83,7 +77,6 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
           <StringField name="name" label={t('common.name')} isRequired />
           <StringField name="description" label={t('common.description')} />
           <StringField name="registrationId" label={t('operator.registration_id')} isRequired />
-          <SelectWithSearchField name="entityId" label={t('operator.associate_entity')} options={entityOptions} isRequired isPortal />
           <DeviceRulesField />
           <IpDetectionModalField name="sourceIP" />
           <StringField name="note" label={t('common.note')} />

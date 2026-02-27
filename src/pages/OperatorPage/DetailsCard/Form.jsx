@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid, Box, Heading } from '@chakra-ui/react';
+import { Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid, Box, Heading, Button } from '@chakra-ui/react';
 import { Formik, Form } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { v4 as uuid } from 'uuid';
 import DeviceRulesField from 'components/CustomFields/DeviceRulesField';
 import IpDetectionModalField from 'components/CustomFields/IpDetectionModalField';
 import NotesTable from 'components/CustomFields/NotesTable';
 import FormattedDate from 'components/FormattedDate';
-import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import { EditOperatorSchema } from 'constants/formSchemas';
 import { EntityShape } from 'constants/propShapes';
-import { useGetEntities } from 'hooks/Network/Entity';
+import { useGetEntity } from 'hooks/Network/Entity';
 import { useUpdateOperator } from 'hooks/Network/Operators';
 import useMutationResult from 'hooks/useMutationResult';
 
@@ -25,9 +25,9 @@ const propTypes = {
 
 const EditOperatorForm = ({ editing, operator, formRef, stopEditing }) => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [formKey, setFormKey] = useState(uuid());
-  const { data: entities } = useGetEntities();
-  const entityOptions = entities?.map((ent) => ({ value: ent.id, label: `${ent.name}${ent.description ? `: ${ent.description}` : ''}` })) ?? [];
+  const { data: entity } = useGetEntity({ id: operator.entityId });
   const updateOperator = useUpdateOperator({ id: operator.id });
   const { onSuccess, onError } = useMutationResult({
     objName: t('operator.one'),
@@ -48,7 +48,7 @@ const EditOperatorForm = ({ editing, operator, formRef, stopEditing }) => {
       initialValues={operator}
       validationSchema={EditOperatorSchema(t)}
       onSubmit={(
-        { name, description, deviceRules, sourceIP, firmwareRCOnly, registrationId, notes, entityId },
+        { name, description, deviceRules, sourceIP, firmwareRCOnly, registrationId, notes },
         { setSubmitting, resetForm },
       ) =>
         updateOperator.mutateAsync(
@@ -59,7 +59,6 @@ const EditOperatorForm = ({ editing, operator, formRef, stopEditing }) => {
             sourceIP,
             firmwareRCOnly,
             registrationId,
-            entityId,
             notes: notes.filter((note) => note.isNew),
           },
           {
@@ -85,7 +84,21 @@ const EditOperatorForm = ({ editing, operator, formRef, stopEditing }) => {
                 <SimpleGrid minChildWidth="300px" spacing="20px">
                   <StringField name="name" label={t('common.name')} isDisabled={!editing} isRequired />
                   <StringField name="description" label={t('common.description')} isDisabled={!editing} />
-                  <SelectWithSearchField name="entityId" label={t('operator.associate_entity')} options={entityOptions} isDisabled={!editing} isRequired isPortal />
+                  <StringField
+                    name="entityId"
+                    label={t('operator.associate_entity')}
+                    element={
+                      entity?.name ? (
+                        <Button variant="link" mt={2} onClick={() => navigate(`/entity/${operator.entityId}`)}>
+                          {entity.name}
+                        </Button>
+                      ) : (
+                        <Heading size="md" pl={1} pt={2}>
+                          -
+                        </Heading>
+                      )
+                    }
+                  />
                   <DeviceRulesField isDisabled={!editing} />
                   <IpDetectionModalField name="sourceIP" setFieldValue={setFieldValue} isDisabled={!editing} />
                   <StringField
