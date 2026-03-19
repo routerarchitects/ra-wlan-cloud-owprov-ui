@@ -103,11 +103,7 @@ const EditSubscriberDeviceForm = (
     (subscriberDevice as { deviceGroup?: string })?.deviceGroup ??
     getDeviceGroupFromType(subscriberDevice.deviceType) ??
     (externalData.deviceClasses.includes('ap') ? 'ap' : externalData.deviceClasses[0] ?? '');
-  const defaultTypes = getDeviceTypesForGroup(defaultGroup);
-  const defaultDeviceType =
-    subscriberDevice.deviceType && defaultTypes.includes(subscriberDevice.deviceType)
-      ? subscriberDevice.deviceType
-      : defaultTypes[0] || '';
+  const defaultDeviceType = subscriberDevice.deviceType || getDeviceTypesForGroup(defaultGroup)[0] || '';
 
   useEffect(() => {
     setFormKey(uuid());
@@ -173,6 +169,7 @@ const EditSubscriberDeviceForm = (
       {({ values, setFieldValue }) => {
         const selectedGroup = values.deviceGroup as string;
         const base = getDeviceTypesForGroup(selectedGroup).slice();
+        if (values.deviceType && !base.includes(values.deviceType)) base.push(values.deviceType);
         const deviceTypeOptions = base.map((deviceType) => ({ value: deviceType, label: deviceType }));
 
         return (
