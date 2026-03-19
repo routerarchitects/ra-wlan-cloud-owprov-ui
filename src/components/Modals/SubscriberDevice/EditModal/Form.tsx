@@ -164,6 +164,14 @@ const EditSubscriberDeviceForm = (
         const base = (typesForGroup?.length ? typesForGroup : externalData.deviceTypes).slice();
         if (values.deviceType && !base.includes(values.deviceType)) base.push(values.deviceType);
         const deviceTypeOptions = base.map((deviceType) => ({ value: deviceType, label: deviceType }));
+        const selectedType = values.deviceType as string;
+
+        useEffect(() => {
+          if (!selectedGroup) return;
+          if (!selectedType && base.length > 0) {
+            setFieldValue('deviceType', base[0]);
+          }
+        }, [selectedGroup, selectedType, base.join('|')]);
 
         return (
           <Tabs variant="enclosed">

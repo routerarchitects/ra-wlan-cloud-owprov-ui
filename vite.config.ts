@@ -57,6 +57,6 @@ export default defineConfig({
     logOverride: { 'this-is-undefined-in-esm': 'silent' },
   },
   define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? 'dev'),
   },
 });
