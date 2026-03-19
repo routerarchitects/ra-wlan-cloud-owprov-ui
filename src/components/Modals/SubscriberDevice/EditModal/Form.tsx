@@ -90,11 +90,24 @@ const EditSubscriberDeviceForm = (
     },
     [externalData.deviceTypesByClass],
   );
+  const getDeviceTypesForGroup = React.useCallback(
+    (deviceGroup: string) => {
+      if (!deviceGroup) return externalData.deviceTypes;
+      const typesForGroup = externalData.deviceTypesByClass[deviceGroup] ?? [];
+      return typesForGroup.length > 0 ? typesForGroup : externalData.deviceTypes;
+    },
+    [externalData.deviceTypes, externalData.deviceTypesByClass],
+  );
   const defaultGroup =
     // @ts-ignore
     (subscriberDevice as { deviceGroup?: string })?.deviceGroup ??
     getDeviceGroupFromType(subscriberDevice.deviceType) ??
     (externalData.deviceClasses.includes('ap') ? 'ap' : externalData.deviceClasses[0] ?? '');
+  const defaultTypes = getDeviceTypesForGroup(defaultGroup);
+  const defaultDeviceType =
+    subscriberDevice.deviceType && defaultTypes.includes(subscriberDevice.deviceType)
+      ? subscriberDevice.deviceType
+      : defaultTypes[0] || '';
 
   useEffect(() => {
     setFormKey(uuid());
@@ -108,6 +121,7 @@ const EditSubscriberDeviceForm = (
       initialValues={{
         ...subscriberDevice,
         deviceGroup: defaultGroup,
+        deviceType: defaultDeviceType,
         contact: {
           ...subscriberDevice.contact,
           primaryEmail:
@@ -158,20 +172,8 @@ const EditSubscriberDeviceForm = (
     >
       {({ values, setFieldValue }) => {
         const selectedGroup = values.deviceGroup as string;
-        const typesForGroup = selectedGroup
-          ? externalData.deviceTypesByClass[selectedGroup] ?? []
-          : externalData.deviceTypes;
-        const base = (typesForGroup?.length ? typesForGroup : externalData.deviceTypes).slice();
-        if (values.deviceType && !base.includes(values.deviceType)) base.push(values.deviceType);
+        const base = getDeviceTypesForGroup(selectedGroup).slice();
         const deviceTypeOptions = base.map((deviceType) => ({ value: deviceType, label: deviceType }));
-        const selectedType = values.deviceType as string;
-
-        useEffect(() => {
-          if (!selectedGroup) return;
-          if (!selectedType && base.length > 0) {
-            setFieldValue('deviceType', base[0]);
-          }
-        }, [selectedGroup, selectedType, base.join('|')]);
 
         return (
           <Tabs variant="enclosed">
@@ -218,7 +220,11 @@ const EditSubscriberDeviceForm = (
                       }))}
                       isRequired
                       isDisabled={!editing}
-                      onChangeEffect={() => setFieldValue('deviceType', '')}
+                      onChangeEffect={(e) => {
+                        const nextGroup = e.target.value as string;
+                        const nextDeviceType = getDeviceTypesForGroup(nextGroup)[0] ?? '';
+                        setFieldValue('deviceType', nextDeviceType);
+                      }}
                     />
                     <SelectField
                       name="deviceType"
