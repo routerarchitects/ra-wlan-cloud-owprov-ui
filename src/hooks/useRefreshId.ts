@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react';
 const useRefreshId = () => {
   const [refreshId, setRefreshId] = useState<number>(0);
 
-  const refresh = useCallback(() => setRefreshId(refreshId + 1), [refreshId]);
+  const refresh = useCallback(() => setRefreshId((id) => id + 1), []);
 
   const toReturn = useMemo(
     () => ({

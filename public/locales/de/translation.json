@@ -278,7 +278,7 @@
 		"months": "Monate",
 		"my_account": "Mein Konto",
 		"name": "Name",
-		"name_error": "Der Name muss weniger als 50 Zeichen lang sein",
+		"name_error": "Der Name muss weniger als 64 Zeichen lang sein",
 		"next": "Nächster",
 		"no": "Nein",
 		"no_addresses_found": "Keine Adressen gefunden",
