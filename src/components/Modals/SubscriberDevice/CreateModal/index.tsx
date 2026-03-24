@@ -100,7 +100,6 @@ const CreateSubscriberDeviceModal = ({ refresh, operatorId, subscriberId, device
         },
         configuration: configuration ?? [],
       } as EditDevice);
-      refresh();
       onSuccess({});
     } catch (e) {
       const errorDescription =
