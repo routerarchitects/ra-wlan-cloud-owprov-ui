@@ -1,5 +1,6 @@
 import React from 'react';
 import { Box, Center, Flex, Heading, Spacer, Spinner, useBoolean } from '@chakra-ui/react';
+import { useQueryClient } from '@tanstack/react-query';
 import Actions from './Actions';
 import DeleteVenuePopover from './DeletePopover';
 import EditSubscriberForm from './Form';
@@ -22,7 +23,11 @@ interface Props {
 
 const SubscriberCard: React.FC<Props> = ({ id }) => {
   const [editing, setEditing] = useBoolean();
+  const queryClient = useQueryClient();
   const { data: subscriber, refetch, isFetching } = useGetSubscriber({ id });
+  const refreshAll = React.useCallback(() => { refetch();
+    queryClient.invalidateQueries({ queryKey: ['get-subscriber-devices', subscriber?.owner, id], exact: true });
+  }, [refetch, queryClient, subscriber?.owner, id]);
   const isWaitingForEmailVerification = !!subscriber?.waitingForEmailCheck;
   const { data: operator } = useGetOperator({
     enabled: isWaitingForEmailVerification && !!subscriber?.owner,
@@ -60,7 +65,7 @@ const SubscriberCard: React.FC<Props> = ({ id }) => {
             ml={2}
           />
           <Actions subscriber={subscriber} refresh={refetch} isDisabled={editing} />
-          <RefreshButton onClick={refetch} isFetching={isFetching} isDisabled={editing} ml={2} />
+          <RefreshButton onClick={refreshAll} isFetching={isFetching} isDisabled={editing} ml={2} />
         </Box>
       </CardHeader>
       <CardBody>
