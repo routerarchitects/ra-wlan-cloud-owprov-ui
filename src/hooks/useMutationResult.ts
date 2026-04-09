@@ -90,7 +90,7 @@ const useMutationResult = ({ objName, operationType, refresh, onClose, queryToIn
       if (onClose) onClose();
       if (queryToInvalidate) queryClient.invalidateQueries(queryToInvalidate);
     },
-    [queryToInvalidate],
+    [refresh, onClose, queryToInvalidate, objName, operationType, t, toast, queryClient],
   );
 
   const onError = useCallback((e, { setSubmitting } = { setSubmitting: null }) => {
@@ -104,14 +104,14 @@ const useMutationResult = ({ objName, operationType, refresh, onClose, queryToIn
       position: 'top-right',
     });
     if (setSubmitting) setSubmitting(false);
-  }, []);
+  }, [objName, operationType, t, toast]);
 
   const toReturn = useMemo(
     () => ({
       onSuccess,
       onError,
     }),
-    [],
+    [onSuccess, onError],
   );
 
   return toReturn;

@@ -25,6 +25,7 @@ const OperatorsTable = () => {
     isFetching,
     setPageInfo,
     refetchCount,
+    refetchData,
   } = useControlledTable({
     useCount: useGetOperatorCount as (props: unknown) => UseQueryResult,
     useGet: useGetOperators as (props: unknown) => UseQueryResult,
@@ -35,8 +36,8 @@ const OperatorsTable = () => {
   const handleGoToClick = (operator: { id: string }) => navigate(`/operators/${operator.id}`);
 
   const memoizedActions = useCallback(
-    (cell) => <Actions cell={cell.row} refreshTable={refetchCount} key={uuid()} />,
-    [],
+    (cell) => <Actions cell={cell.row} refreshTable={() => { refetchCount(); refetchData(); }} key={uuid()} />,
+    [refetchCount, refetchData],
   );
   const memoizedDate = useCallback((cell, key) => <FormattedDate date={cell.row.values[key]} key={uuid()} />, []);
 
@@ -94,8 +95,8 @@ const OperatorsTable = () => {
               setHiddenColumns={setHiddenColumns}
               preference="provisioning.operatorTable.hiddenColumns"
             />
-            <CreateOperatorModal refresh={refetchCount} />
-            <RefreshButton onClick={refetchCount} isFetching={isFetching} ml={2} />
+            <CreateOperatorModal refresh={() => { refetchCount(); refetchData(); }} />
+            <RefreshButton onClick={() => { refetchCount(); refetchData(); }} isFetching={isFetching} ml={2} />
           </Box>
         </Flex>
       </CardHeader>

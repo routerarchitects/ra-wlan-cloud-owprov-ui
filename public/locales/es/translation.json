@@ -278,7 +278,7 @@
 		"months": "Meses",
 		"my_account": "Mi cuenta",
 		"name": "Nombre",
-		"name_error": "El nombre debe tener menos de 50 caracteres",
+		"name_error": "El nombre debe tener como máximo 64 caracteres",
 		"next": "Siguiente",
 		"no": "No",
 		"no_addresses_found": "No se encontraron direcciones",
