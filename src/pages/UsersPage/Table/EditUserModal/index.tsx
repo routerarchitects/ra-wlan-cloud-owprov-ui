@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Modal } from '../../../../components/Modals/Modal';
 import ActionsDropdown from '../ActionsDropdown';
 import UpdateUserForm from './Form';
+import { useAuth } from 'contexts/AuthProvider';
 import SaveButton from 'components/Buttons/SaveButton';
 import ToggleEditButton from 'components/Buttons/ToggleEditButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
@@ -20,12 +21,15 @@ type Props = {
 
 const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
   const { t } = useTranslation();
+  const { user: authUser } = useAuth();
   const [editing, setEditing] = useBoolean();
+  const [activeTab, setActiveTab] = React.useState(0);
   const queryClient = useQueryClient();
   const { isOpen: showConfirm, onOpen: openConfirm, onClose: closeConfirm } = useDisclosure();
   const { form, formRef } = useFormRef<User>();
   const canFetchUser = userId !== '' && isOpen;
   const { data: user, isFetching, refetch } = useGetUser({ id: userId ?? '', enabled: canFetchUser });
+  const canManageAccess = authUser?.userRole === 'root' || authUser?.userRole === 'admin';
 
   const closeModal = () => (form.dirty ? openConfirm() : onClose());
 
@@ -41,6 +45,7 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
 
   useEffect(() => {
     if (isOpen) setEditing.off();
+    if (isOpen) setActiveTab(0);
   }, [isOpen]);
 
   return (
@@ -86,7 +91,16 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
         }
       >
         {!isFetching && user ? (
-          <UpdateUserForm editing={editing} selectedUser={user} isOpen={isOpen} onClose={onClose} formRef={formRef} />
+          <UpdateUserForm
+            editing={editing}
+            canManageAccess={canManageAccess}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            selectedUser={user}
+            isOpen={isOpen}
+            onClose={onClose}
+            formRef={formRef}
+          />
         ) : (
           <Center>
             <Spinner />

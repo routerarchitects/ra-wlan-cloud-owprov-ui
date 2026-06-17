@@ -25,13 +25,27 @@ export type CreateUserFormValues = {
   changePassword: boolean;
 };
 
+export type CreatedUserResult = {
+  email: string;
+  id: string;
+  userId: string;
+};
+
 type Props = {
   isOpen: boolean;
-  onClose: () => void;
+  onCreated: (createdUser: CreatedUserResult) => void;
   formRef: React.Ref<FormikProps<CreateUserFormValues>>;
 };
 
-const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
+const getCreatedUserId = (responseData: unknown) => {
+  if (typeof responseData !== 'object' || responseData === null) return '';
+
+  const typedResponse = responseData as { id?: string; userId?: string; user?: { id?: string; userId?: string } };
+
+  return typedResponse.userId ?? typedResponse.id ?? typedResponse.user?.userId ?? typedResponse.user?.id ?? '';
+};
+
+const CreateUserForm = ({ isOpen, onCreated, formRef }: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const { user } = useAuth();
@@ -125,21 +139,29 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
       validationSchema={user?.userRole === 'root' ? CreateUserSchema : CreateUserNonRootSchema}
       onSubmit={(formData, { setSubmitting, resetForm }) =>
         createUser.mutate(createParameters(formData), {
-          onSuccess: () => {
+          onSuccess: (response) => {
             setSubmitting(false);
             resetForm();
-            toast({
-              id: 'user-creation-success',
-              title: t('common.success'),
-              description: t('crud.success_create_obj', {
-                obj: t('user.title'),
-              }),
-              status: 'success',
-              duration: 5000,
-              isClosable: true,
-              position: 'top-right',
+            const createdUserId = getCreatedUserId(response.data);
+            if (createdUserId.length === 0) {
+              toast({
+                id: uuid(),
+                title: t('common.error'),
+                description: t('crud.error_create_obj', {
+                  obj: t('user.title'),
+                }),
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+                position: 'top-right',
+              });
+              return;
+            }
+            onCreated({
+              email: formData.email,
+              id: createdUserId,
+              userId: createdUserId,
             });
-            onClose();
           },
           onError: (e) => {
             setSubmitting(false);
