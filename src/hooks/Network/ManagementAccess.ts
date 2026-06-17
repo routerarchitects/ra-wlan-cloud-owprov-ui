@@ -2,6 +2,7 @@ import { useToast } from '@chakra-ui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import { useTranslation } from 'react-i18next';
+import { VenueApiResponse } from 'models/Venue';
 import { axiosProv } from 'utils/axiosInstances';
 
 export type ManagementScope = 'entity' | 'venue';
@@ -76,6 +77,9 @@ export type AssignUserAccessInput = {
   userId: string;
   venueId?: string;
   resourcePermissions?: ManagementResourceAccess[];
+  currentUserRole?: string;
+  currentUserSecurityPolicy?: string;
+  currentUserId?: string;
 };
 
 export type ManagementAccessResult = {
@@ -629,6 +633,135 @@ export const getMatchingManagementRole = (
     return role.entity === entityId && (role.venue ?? '') === desiredVenue && (role.managementPolicyId ?? role.managementPolicy) === policyId;
   });
 
+type NormalizedPermission = {
+  user: string;
+  scope: string;
+  entityId: string;
+  resource: string;
+  access: ManagementAccessPermission[];
+  policyContext: string;
+};
+
+const normalizeEntries = (entries: ManagementPolicyEntry[]): NormalizedPermission[] => {
+  const result: NormalizedPermission[] = [];
+  for (const entry of entries) {
+    const parsed = parsePolicyScope(entry.policy);
+    for (const user of entry.users ?? []) {
+      for (const resource of entry.resources ?? []) {
+        result.push({
+          user,
+          scope: parsed.scope,
+          entityId: parsed.entityId,
+          resource,
+          access: entry.access ?? [],
+          policyContext: entry.policy,
+        });
+      }
+    }
+  }
+  return result;
+};
+
+export const mergePolicyEntries = (
+  existingEntries: ManagementPolicyEntry[],
+  targetEntries: ManagementPolicyEntry[],
+  userId: string
+): ManagementPolicyEntry[] => {
+  const existingRules = normalizeEntries(existingEntries);
+  const targetRules = normalizeEntries(targetEntries);
+
+  const targetResources = new Set(targetRules.map((r) => r.resource));
+  const targetScopes = new Set(targetRules.map((r) => r.scope));
+  const targetEntityIds = new Set(targetRules.map((r) => r.entityId));
+
+  const preservedRules = existingRules.filter((rule) => {
+    if (rule.user !== userId) return true;
+    if (!targetScopes.has(rule.scope) || !targetEntityIds.has(rule.entityId)) return true;
+    if (!targetResources.has(rule.resource)) return true;
+    return false;
+  });
+
+  const mergedRules = [...preservedRules, ...targetRules];
+
+  const userGroups = new Map<
+    string,
+    { user: string; policyContext: string; access: ManagementAccessPermission[]; resources: Set<string> }
+  >();
+  for (const rule of mergedRules) {
+    const accessKey = [...rule.access].sort().join(',');
+    const key = `${rule.user}|||${rule.policyContext}|||${accessKey}`;
+    const existing = userGroups.get(key);
+    if (existing) {
+      existing.resources.add(rule.resource);
+    } else {
+      userGroups.set(key, {
+        user: rule.user,
+        policyContext: rule.policyContext,
+        access: rule.access,
+        resources: new Set([rule.resource]),
+      });
+    }
+  }
+
+  const entryGroups = new Map<
+    string,
+    { users: Set<string>; resources: string[]; access: ManagementAccessPermission[]; policy: string }
+  >();
+  for (const group of userGroups.values()) {
+    const sortedResources = [...group.resources].sort();
+    const resourcesKey = sortedResources.join(',');
+    const accessKey = [...group.access].sort().join(',');
+    const key = `${resourcesKey}|||${group.policyContext}|||${accessKey}`;
+    const existing = entryGroups.get(key);
+    if (existing) {
+      existing.users.add(group.user);
+    } else {
+      entryGroups.set(key, {
+        users: new Set([group.user]),
+        resources: sortedResources,
+        access: group.access,
+        policy: group.policyContext,
+      });
+    }
+  }
+
+  return [...entryGroups.values()].map((g) => ({
+    users: [...g.users],
+    resources: g.resources,
+    access: g.access,
+    policy: g.policy,
+  }));
+};
+
+export const isPolicyShared = (
+  policy: ManagementPolicyApiResponse,
+  userId: string,
+  currentRoleId?: string,
+  allEntityRoles?: ManagementRoleApiResponse[]
+): boolean => {
+  const hasOtherUsers = (policy.entries ?? []).some((entry) =>
+    (entry.users ?? []).some((u) => u !== userId)
+  );
+  if (hasOtherUsers) return true;
+
+  if (allEntityRoles && currentRoleId) {
+    const policyId = policy.id;
+    const referencingRoles = allEntityRoles.filter(
+      (r) => (r.managementPolicyId ?? r.managementPolicy) === policyId
+    );
+    if (referencingRoles.some((r) => r.id !== currentRoleId)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const auditLog = (message: string) => {
+  // eslint-disable-next-line no-console
+  console.info(message);
+};
+
 export const assignUserAccess = async ({
   access,
   entityId,
@@ -639,16 +772,195 @@ export const assignUserAccess = async ({
   userEmail,
   userId,
   venueId,
+  currentUserRole,
+  currentUserId,
 }: AssignUserAccessInput): Promise<ManagementAccessResult> => {
   if (!entityId) {
     throw new Error('Entity could not be determined');
   }
 
+  // Privilege Escalation Prevention & Authorization checks
+  const actingRole = currentUserRole ?? 'root';
+  if (actingRole !== 'root') {
+    if (!currentUserId) {
+      throw new Error(
+        'Caller authentication context missing: cannot verify permissions'
+      );
+    }
+    const callerRoles = await getManagementRoleForUserEntity({
+      entityId,
+      userId: currentUserId,
+    });
+    if (callerRoles.length === 0) {
+      throw new Error('You are not authorized to manage this entity');
+    }
+
+    if (scope === 'venue') {
+      if (!venueId || !venueId.trim()) {
+        throw new Error('Venue ID is required for venue scope');
+      }
+      let venueData: VenueApiResponse;
+      try {
+        const venueRes = await axiosProv.get(
+          `venue/${encodeURIComponent(venueId)}`
+        );
+        venueData = venueRes.data as VenueApiResponse;
+      } catch {
+        throw new Error('Venue does not exist');
+      }
+
+      if (venueData.entity !== entityId) {
+        throw new Error('Cross-entity venue assignment is rejected');
+      }
+
+      const hasAccess = callerRoles.some(
+        (role) => !role.venue || role.venue === venueId
+      );
+      if (!hasAccess) {
+        throw new Error('You are not authorized to manage this venue');
+      }
+    }
+
+    const hasPrivilegedResource = (resourcePermissions ?? []).some(
+      (r) => r.resource === 'managementPolicy' || r.resource === 'managementRole'
+    ) || resources.some((r) => r === 'managementPolicy' || r === 'managementRole');
+
+    if (hasPrivilegedResource) {
+      throw new Error(
+        'Only root users can assign access to managementPolicy or managementRole'
+      );
+    }
+
+    const callerPolicies = await Promise.all(
+      callerRoles.map(async (role) => {
+        const policyId = role.managementPolicyId ?? role.managementPolicy ?? '';
+        if (!policyId) return undefined;
+        return getManagementPolicyById({ policyId });
+      })
+    );
+    const validCallerPolicies = callerPolicies.filter(
+      (p): p is ManagementPolicyApiResponse => p !== undefined
+    );
+    const callerRules = normalizeEntries(
+      validCallerPolicies.flatMap((p) => p.entries ?? [])
+    );
+
+    const targets = resourcePermissions !== undefined && resourcePermissions.length > 0
+      ? resourcePermissions
+      : resources.map((resource) => ({ resource, access }));
+
+    for (const targetRule of targets) {
+      const callerRuleForResource = callerRules.find(
+        (cr) => cr.resource === targetRule.resource
+      );
+
+      if (!callerRuleForResource) {
+        throw new Error(
+          `Privilege escalation: You do not have permissions for resource ${targetRule.resource}`
+        );
+      }
+
+      const callerAccess = callerRuleForResource.access;
+      const hasFull = callerAccess.includes('FULL');
+      if (!hasFull) {
+        for (const perm of targetRule.access) {
+          if (!callerAccess.includes(perm)) {
+            throw new Error(
+              `Privilege escalation: You cannot grant permission ${perm} ` +
+              `on ${targetRule.resource} as it exceeds your own permissions`
+            );
+          }
+        }
+      }
+    }
+  } else if (scope === 'venue') {
+    // If the caller is root, we still validate entity-venue constraints
+    if (!venueId || !venueId.trim()) {
+      throw new Error('Venue ID is required for venue scope');
+    }
+    let venueData: VenueApiResponse;
+    try {
+      const venueRes = await axiosProv.get(
+        `venue/${encodeURIComponent(venueId)}`
+      );
+      venueData = venueRes.data as VenueApiResponse;
+    } catch {
+      throw new Error('Venue does not exist');
+    }
+
+    if (venueData.entity !== entityId) {
+      throw new Error('Cross-entity venue assignment is rejected');
+    }
+  }
+
   const resolvedVenueId = scope === 'venue' ? venueId ?? '' : '';
   const rolesForUser = await getManagementRoleForUserEntity({ entityId, userId });
-  const existingRole = rolesForUser[0];
+
+  let existingRole: ManagementRoleApiResponse | undefined;
+  let existingPolicy: ManagementPolicyApiResponse | undefined;
+
+  const template = buildTemplateContext(scope, roleTemplate);
+
+  const candidates = rolesForUser.filter((role) =>
+    role.entity === entityId && (role.venue ?? '') === resolvedVenueId
+  );
+
+  if (candidates.length > 0) {
+    const policiesWithRoles = await Promise.all(
+      candidates.map(async (role) => {
+        const policyId = role.managementPolicyId ?? role.managementPolicy ?? '';
+        if (!policyId) return { role, policy: undefined };
+        const policy = await getManagementPolicyById({ policyId });
+        return { role, policy };
+      })
+    );
+
+    const matchingCandidate = policiesWithRoles.find(({ role, policy }) => {
+      if (!policy) return false;
+
+      if (scope === 'venue' && (policy.venue ?? '') !== resolvedVenueId) {
+        return false;
+      }
+
+      const hasMatchingScope = (policy.entries ?? []).some((entry) => {
+        const parsed = parsePolicyScope(entry.policy);
+        return parsed.scope === scope;
+      });
+      if (!hasMatchingScope) return false;
+
+      const nameMatches =
+        role.name.includes(template.namePrefix) ||
+        policy.name.includes(template.namePrefix) ||
+        (scope === 'entity' && roleTemplate === 'Admin' && policy.name === 'Operator Admin Full Access Policy');
+      if (!nameMatches) return false;
+
+      return true;
+    });
+
+    if (matchingCandidate) {
+      existingRole = matchingCandidate.role;
+      existingPolicy = matchingCandidate.policy;
+    }
+  }
+
+  let isSafeToUpdate = false;
+  let isRoleShared = false;
+  if (existingRole && existingPolicy) {
+    const allEntityRoles = await getManagementRoles({
+      entityId,
+      venueId: resolvedVenueId || undefined,
+    });
+    const isShared = isPolicyShared(
+      existingPolicy,
+      userId,
+      existingRole.id,
+      allEntityRoles
+    );
+    isRoleShared = (existingRole.users ?? []).some((u) => u !== userId);
+    isSafeToUpdate = !isShared;
+  }
+
   const existingPolicyId = existingRole?.managementPolicyId ?? existingRole?.managementPolicy ?? '';
-  const existingPolicy = existingPolicyId ? await getManagementPolicyById({ policyId: existingPolicyId }) : undefined;
   const policyEntityId = existingPolicy?.entity ?? entityId;
   const policyVenueId = existingPolicy?.venue ?? resolvedVenueId;
 
@@ -664,12 +976,47 @@ export const assignUserAccess = async ({
   });
 
   let policyId = existingPolicy?.id ?? existingPolicyId ?? '';
-  if (existingPolicy && policyId) {
-    await axiosProv.put(`managementPolicy/${encodeURIComponent(policyId)}`, policyPayload);
+  if (existingPolicy && policyId && isSafeToUpdate) {
+    const mergedEntries = mergePolicyEntries(
+      existingPolicy.entries ?? [],
+      policyPayload.entries,
+      userId
+    );
+    const updatedPolicyPayload = {
+      ...policyPayload,
+      entries: mergedEntries,
+    };
+    await axiosProv.put(
+      `managementPolicy/${encodeURIComponent(policyId)}`,
+      updatedPolicyPayload
+    );
+    auditLog(
+      `[AUDIT] Policy Updated - Actor: ${currentUserId || 'unknown'} ` +
+      `(Role: ${actingRole}), Target User: ${userId}, Entity: ${entityId}, ` +
+      `Scope: ${scope}, Policy ID: ${policyId}, ` +
+      `Timestamp: ${new Date().toISOString()}`
+    );
   } else {
-    const createdPolicy = await axiosProv.post('managementPolicy/create', policyPayload);
-    const createdPolicyData = createdPolicy.data as { id?: string; managementPolicy?: string; managementPolicyId?: string };
-    policyId = createdPolicyData.id ?? createdPolicyData.managementPolicy ?? createdPolicyData.managementPolicyId ?? '';
+    const createdPolicy = await axiosProv.post(
+      'managementPolicy/create',
+      policyPayload
+    );
+    const createdPolicyData = createdPolicy.data as {
+      id?: string;
+      managementPolicy?: string;
+      managementPolicyId?: string;
+    };
+    policyId =
+      createdPolicyData.id ??
+      createdPolicyData.managementPolicy ??
+      createdPolicyData.managementPolicyId ??
+      '';
+    auditLog(
+      `[AUDIT] Policy Created - Actor: ${currentUserId || 'unknown'} ` +
+      `(Role: ${actingRole}), Target User: ${userId}, Entity: ${entityId}, ` +
+      `Scope: ${scope}, Policy ID: ${policyId}, ` +
+      `Timestamp: ${new Date().toISOString()}`
+    );
   }
 
   if (!policyId) {
@@ -677,31 +1024,145 @@ export const assignUserAccess = async ({
   }
 
   if (existingRole) {
-    const nextUsers = Array.from(new Set([...(existingRole.users ?? []), userId]));
-    const rolePolicyId = existingRole.managementPolicyId ?? existingRole.managementPolicy ?? '';
-    const roleUpdated = nextUsers.length !== (existingRole.users ?? []).length || rolePolicyId !== policyId;
+    if (isSafeToUpdate) {
+      const nextUsers = Array.from(
+        new Set([...(existingRole.users ?? []), userId])
+      );
+      const rolePolicyId =
+        existingRole.managementPolicyId ??
+        existingRole.managementPolicy ??
+        '';
+      const roleUpdated =
+        nextUsers.length !== (existingRole.users ?? []).length ||
+        rolePolicyId !== policyId;
 
-    if (roleUpdated) {
-      await axiosProv.put(`managementRole/${encodeURIComponent(existingRole.id)}`, {
+      if (roleUpdated) {
+        await axiosProv.put(
+          `managementRole/${encodeURIComponent(existingRole.id)}`,
+          {
+            name: existingRole.name,
+            description: existingRole.description,
+            managementPolicy: policyId,
+            users: nextUsers,
+            venue: resolvedVenueId || '',
+            entity: entityId,
+          } as ManagementRoleRequest
+        );
+        auditLog(
+          `[AUDIT] Role Updated - Actor: ${currentUserId || 'unknown'} ` +
+          `(Role: ${actingRole}), Target User: ${userId}, Entity: ${entityId}, ` +
+          `Scope: ${scope}, Role ID: ${existingRole.id}, ` +
+          `Next Users: ${JSON.stringify(nextUsers)}, ` +
+          `Timestamp: ${new Date().toISOString()}`
+        );
+      }
+
+      return {
+        entityId,
+        policyId,
+        roleId: existingRole.id,
+        roleUpdated,
+        venueId: resolvedVenueId,
+      };
+    }
+
+    if (!isRoleShared) {
+      await axiosProv.put(
+        `managementRole/${encodeURIComponent(existingRole.id)}`,
+        {
+          name: existingRole.name,
+          description: existingRole.description,
+          managementPolicy: policyId,
+          users: [userId],
+          venue: resolvedVenueId || '',
+          entity: entityId,
+        } as ManagementRoleRequest
+      );
+      auditLog(
+        `[AUDIT] Role Updated (Policy Split) - Actor: ` +
+        `${currentUserId || 'unknown'} (Role: ${actingRole}), ` +
+        `Target User: ${userId}, Entity: ${entityId}, Scope: ${scope}, ` +
+        `Role ID: ${existingRole.id}, Timestamp: ${new Date().toISOString()}`
+      );
+
+      return {
+        entityId,
+        policyId,
+        roleId: existingRole.id,
+        roleUpdated: true,
+        venueId: resolvedVenueId,
+      };
+    }
+
+    const nextUsers = (existingRole.users ?? []).filter((u) => u !== userId);
+    await axiosProv.put(
+      `managementRole/${encodeURIComponent(existingRole.id)}`,
+      {
         name: existingRole.name,
         description: existingRole.description,
-        managementPolicy: policyId,
+        managementPolicy:
+          existingRole.managementPolicyId ??
+          existingRole.managementPolicy ??
+          '',
         users: nextUsers,
         venue: resolvedVenueId || '',
         entity: entityId,
-      } as ManagementRoleRequest);
+      } as ManagementRoleRequest
+    );
+    auditLog(
+      `[AUDIT] Shared Role Updated (User Removed) - Actor: ` +
+      `${currentUserId || 'unknown'} (Role: ${actingRole}), ` +
+      `Target User: ${userId}, Entity: ${entityId}, Scope: ${scope}, ` +
+      `Role ID: ${existingRole.id}, Next Users: ${JSON.stringify(nextUsers)}, ` +
+      `Timestamp: ${new Date().toISOString()}`
+    );
+
+    const createdRole = await axiosProv.post(
+      'managementRole/create',
+      buildManagementRolePayload({
+        entityId,
+        policyId,
+        roleTemplate,
+        scope,
+        userEmail,
+        userId,
+        venueId: resolvedVenueId || undefined,
+      })
+    );
+    const createdRoleData = createdRole.data as {
+      id?: string;
+      managementRole?: string;
+      managementRoleId?: string;
+    };
+    const newRoleId =
+      createdRoleData.id ??
+      createdRoleData.managementRole ??
+      createdRoleData.managementRoleId ??
+      '';
+
+    if (!newRoleId) {
+      throw new Error('Management role could not be created');
     }
+    auditLog(
+      `[AUDIT] New Role Created (Split) - Actor: ` +
+      `${currentUserId || 'unknown'} (Role: ${actingRole}), ` +
+      `Target User: ${userId}, Entity: ${entityId}, Scope: ${scope}, ` +
+      `Role ID: ${newRoleId}, Timestamp: ${new Date().toISOString()}`
+    );
 
     return {
       entityId,
       policyId,
-      roleId: existingRole.id,
-      roleUpdated,
+      roleId: newRoleId,
+      roleUpdated: true,
       venueId: resolvedVenueId,
     };
   }
 
-  const roles = await getManagementRoles({ entityId, venueId: resolvedVenueId || undefined });
+  const roles = await getManagementRoles({
+    entityId,
+    venueId: resolvedVenueId || undefined,
+  });
   const matchingRole = getMatchingManagementRole(roles, {
     entityId,
     policyId,
@@ -710,7 +1171,9 @@ export const assignUserAccess = async ({
   });
 
   if (matchingRole) {
-    const nextUsers = Array.from(new Set([...(matchingRole.users ?? []), userId]));
+    const nextUsers = Array.from(
+      new Set([...(matchingRole.users ?? []), userId])
+    );
     const didUpdate = nextUsers.length !== (matchingRole.users ?? []).length;
     if (nextUsers.length !== (matchingRole.users ?? []).length) {
       await axiosProv.put(
@@ -722,7 +1185,14 @@ export const assignUserAccess = async ({
           users: nextUsers,
           venue: resolvedVenueId || '',
           entity: entityId,
-        } as ManagementRoleRequest,
+        } as ManagementRoleRequest
+      );
+      auditLog(
+        `[AUDIT] Role Updated - Actor: ${currentUserId || 'unknown'} ` +
+        `(Role: ${actingRole}), Target User: ${userId}, Entity: ${entityId}, ` +
+        `Scope: ${scope}, Role ID: ${matchingRole.id}, ` +
+        `Next Users: ${JSON.stringify(nextUsers)}, ` +
+        `Timestamp: ${new Date().toISOString()}`
       );
     }
 
@@ -735,21 +1205,38 @@ export const assignUserAccess = async ({
     };
   }
 
-  const createdRole = await axiosProv.post('managementRole/create', buildManagementRolePayload({
-    entityId,
-    policyId,
-    roleTemplate,
-    scope,
-    userEmail,
-    userId,
-    venueId: resolvedVenueId || undefined,
-  }));
-  const createdRoleData = createdRole.data as { id?: string; managementRole?: string; managementRoleId?: string };
-  const roleId = createdRoleData.id ?? createdRoleData.managementRole ?? createdRoleData.managementRoleId ?? '';
+  const createdRole = await axiosProv.post(
+    'managementRole/create',
+    buildManagementRolePayload({
+      entityId,
+      policyId,
+      roleTemplate,
+      scope,
+      userEmail,
+      userId,
+      venueId: resolvedVenueId || undefined,
+    })
+  );
+  const createdRoleData = createdRole.data as {
+    id?: string;
+    managementRole?: string;
+    managementRoleId?: string;
+  };
+  const roleId =
+    createdRoleData.id ??
+    createdRoleData.managementRole ??
+    createdRoleData.managementRoleId ??
+    '';
 
   if (!roleId) {
     throw new Error('Management role could not be created');
   }
+  auditLog(
+    `[AUDIT] Role Created - Actor: ${currentUserId || 'unknown'} ` +
+    `(Role: ${actingRole}), Target User: ${userId}, Entity: ${entityId}, ` +
+    `Scope: ${scope}, Role ID: ${roleId}, Policy ID: ${policyId}, ` +
+    `Timestamp: ${new Date().toISOString()}`
+  );
 
   return {
     entityId,
@@ -760,6 +1247,4 @@ export const assignUserAccess = async ({
   };
 };
 
-export const useAssignUserAccess = () => {
-  return useMutation(assignUserAccess);
-};
+export const useAssignUserAccess = () => useMutation(assignUserAccess);

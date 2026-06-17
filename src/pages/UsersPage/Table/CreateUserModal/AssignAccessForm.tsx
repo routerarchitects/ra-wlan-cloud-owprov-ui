@@ -18,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import * as Yup from 'yup';
 import MultiSelectField from 'components/FormFields/MultiSelectField';
 import SelectField from 'components/FormFields/SelectField';
-import StringField from 'components/FormFields/StringField';
 import { useAuth } from 'contexts/AuthProvider';
 import { useGetEntities } from 'hooks/Network/Entity';
 import {
@@ -31,6 +30,7 @@ import {
   useGetManagementPolicyForUserEntity,
   useAssignUserAccess,
 } from 'hooks/Network/ManagementAccess';
+import { useGetVenues } from 'hooks/Network/Venues';
 
 type AssignAccessFormValues = {
   entityId: string;
@@ -150,6 +150,48 @@ const extractAllowedEntityIds = (securityPolicy?: string) => {
   }
 };
 
+const extractAllowedVenueIds = (securityPolicy?: string) => {
+  if (!securityPolicy) return [];
+
+  try {
+    const parsed = JSON.parse(securityPolicy) as unknown;
+    const ids = new Set<string>();
+
+    const visit = (value: unknown) => {
+      if (!value) return;
+      if (typeof value === 'string') {
+        ids.add(value);
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach(visit);
+        return;
+      }
+      if (typeof value !== 'object') return;
+
+      Object.entries(value as Record<string, unknown>).forEach(
+        ([key, nestedValue]) => {
+          if (
+            ['venue', 'venueId'].includes(key) &&
+            typeof nestedValue === 'string'
+          ) {
+            ids.add(nestedValue);
+            return;
+          }
+          if (['venues', 'venueIds'].includes(key)) {
+            visit(nestedValue);
+          }
+        }
+      );
+    };
+
+    visit(parsed);
+    return Array.from(ids);
+  } catch {
+    return [];
+  }
+};
+
 const ValidationSchema = (t: (key: string) => string) =>
   Yup.object().shape({
     userId: Yup.string().required(t('form.required')),
@@ -179,6 +221,10 @@ const EntityResolver = () => {
   const { values, setFieldValue } = useFormikContext<AssignAccessFormValues>();
   const { user: authUser } = useAuth();
   const entityQuery = useGetEntities();
+  const { data: venues } = useGetVenues();
+
+  // NOTE: Client-side filtering is for UX convenience only and is not a security control.
+  // Enforced authorization check runs on the backend/API validation boundary.
   const allowedEntityIds = useMemo(() => {
     if (authUser?.userRole === 'root') return [];
 
@@ -187,17 +233,59 @@ const EntityResolver = () => {
 
     return authUser?.owner ? [authUser.owner] : [];
   }, [authUser?.owner, authUser?.securityPolicy, authUser?.userRole]);
+
   const visibleEntities = useMemo(() => {
     if (allowedEntityIds.length === 0) return entityQuery.data ?? [];
 
     return (entityQuery.data ?? []).filter((entity) => allowedEntityIds.includes(entity.id));
   }, [allowedEntityIds, entityQuery.data]);
+
+  const allowedVenueIds = useMemo(() => {
+    if (authUser?.userRole === 'root') return [];
+    return extractAllowedVenueIds(authUser?.securityPolicy);
+  }, [authUser?.securityPolicy, authUser?.userRole]);
+
+  const visibleVenues = useMemo(() => {
+    if (!values.entityId) return [];
+    const entityVenues = (venues ?? []).filter((v) => v.entity === values.entityId);
+    if (authUser?.userRole === 'root') return entityVenues;
+
+    if (allowedVenueIds.length > 0) {
+      return entityVenues.filter((v) => allowedVenueIds.includes(v.id));
+    }
+    return entityVenues;
+  }, [venues, values.entityId, authUser?.userRole, allowedVenueIds]);
+
+  const filteredResourceOptions = useMemo(() => {
+    if (authUser?.userRole === 'root') return resourceOptions;
+    return resourceOptions.filter(
+      (opt) => opt.value !== 'managementPolicy' && opt.value !== 'managementRole',
+    );
+  }, [authUser?.userRole]);
+
   const policyQuery = useGetManagementPolicyForUserEntity({
     enabled: Boolean(values.entityId) && Boolean(values.userId),
     entityId: values.entityId,
     userId: values.userId,
   });
   const existingPolicy = policyQuery.data?.policy;
+
+  useEffect(() => {
+    if (values.scope !== 'venue') {
+      if (values.venueId !== '') {
+        setFieldValue('venueId', '', false);
+      }
+    }
+  }, [values.scope, values.venueId, setFieldValue]);
+
+  useEffect(() => {
+    if (values.scope === 'venue' && values.venueId !== '') {
+      const isPresent = visibleVenues.some((v) => v.id === values.venueId);
+      if (!isPresent) {
+        setFieldValue('venueId', '', false);
+      }
+    }
+  }, [values.entityId, visibleVenues, values.scope, values.venueId, setFieldValue]);
 
   useEffect(() => {
     if (!values.entityId) return;
@@ -244,8 +332,31 @@ const EntityResolver = () => {
           isRequired
         />
         <SelectField name="roleTemplate" label="Role Template" options={roleTemplateOptions} isRequired />
-        <StringField name="venueId" label="Venue ID" isRequired={values.scope === 'venue'} isHidden={values.scope !== 'venue'} />
+        {values.scope === 'venue' ? (
+          <SelectField
+            name="venueId"
+            label="Venue"
+            options={[
+              { label: 'Select venue', value: '' },
+              ...visibleVenues.map((v) => ({
+                label: v.name,
+                value: v.id,
+              })),
+            ]}
+            isRequired
+          />
+        ) : null}
       </SimpleGrid>
+
+      {values.scope === 'venue' && visibleVenues.length === 0 && values.entityId !== '' && (
+        <Alert status="warning" borderRadius="md" mt={2}>
+          <AlertIcon />
+          <Box>
+            <AlertTitle>No Venues Found</AlertTitle>
+            <AlertDescription>The selected entity has no manageable venues.</AlertDescription>
+          </Box>
+        </Alert>
+      )}
 
       <Box borderWidth="1px" borderRadius="md" p={4}>
         <Stack spacing={3}>
@@ -257,11 +368,17 @@ const EntityResolver = () => {
             {({ push, remove }) => (
               <Stack spacing={3}>
                 {values.resourcePermissions.map((_, index) => (
-                  <SimpleGrid key={`${values.entityId}-${index}`} minChildWidth="220px" spacing="12px" alignItems="end">
+                  <SimpleGrid
+                    /* eslint-disable-next-line react/no-array-index-key */
+                    key={`${values.entityId}-${index}`}
+                    minChildWidth="220px"
+                    spacing="12px"
+                    alignItems="end"
+                  >
                     <SelectField
                       name={`resourcePermissions.${index}.resource`}
                       label={index === 0 ? 'Resource' : ''}
-                      options={resourceOptions}
+                      options={filteredResourceOptions}
                       isRequired
                     />
                     <MultiSelectField
@@ -299,15 +416,16 @@ const EntityResolver = () => {
         <Text fontSize="sm" color="gray.500">
           Access is loaded for the selected entity.
         </Text>
-        {existingPolicy ? (
+        {existingPolicy && (
           <Text fontSize="sm" color="green.500" mt={1}>
             Existing policy found. Submit will update {existingPolicy.name}.
           </Text>
-        ) : values.entityId ? (
+        )}
+        {!existingPolicy && values.entityId && (
           <Text fontSize="sm" color="orange.500" mt={1}>
             No policy found for this user and entity. Submit will create one.
           </Text>
-        ) : null}
+        )}
         {visibleEntities.length === 0 ? (
           <Text fontSize="sm" color="red.500" mt={1}>
             No permitted entities available to select.
@@ -340,6 +458,8 @@ const getInitialValues = ({
 const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }: Props) => {
   const { t } = useTranslation();
   const assignAccessMutation = useAssignUserAccess();
+  const { user: authUser } = useAuth();
+  const { isLoading: isLoadingVenues } = useGetVenues();
 
   return (
     <Formik
@@ -359,6 +479,9 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
             userId: values.userId,
             resourcePermissions: values.resourcePermissions,
             venueId: values.scope === 'venue' ? values.venueId : undefined,
+            currentUserRole: authUser?.userRole,
+            currentUserSecurityPolicy: authUser?.securityPolicy,
+            currentUserId: authUser?.userId,
           });
           onComplete();
         } catch (error) {
@@ -368,50 +491,53 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
         }
       }}
     >
-      {({ isSubmitting, isValid, status, values }) => {
-        return (
-          <Form>
-            <Stack spacing={4}>
-              <Alert status="info" borderRadius="md">
+      {({ isSubmitting, isValid, status, values }) => (
+        <Form>
+          <Stack spacing={4}>
+            <Alert status="info" borderRadius="md">
+              <AlertIcon />
+              <Box>
+                <AlertTitle>{context.heading}</AlertTitle>
+                <AlertDescription>{context.description.replace('{{email}}', user.email)}</AlertDescription>
+              </Box>
+            </Alert>
+
+            {status ? (
+              <Alert status="warning" borderRadius="md">
                 <AlertIcon />
                 <Box>
-                  <AlertTitle>{context.heading}</AlertTitle>
-                  <AlertDescription>{context.description.replace('{{email}}', user.email)}</AlertDescription>
+                  <AlertTitle>{context.pendingTitle}</AlertTitle>
+                  <AlertDescription>
+                    {status instanceof Error ? status.message : t('common.error')}
+                  </AlertDescription>
                 </Box>
               </Alert>
+            ) : null}
 
-              {status ? (
-                <Alert status="warning" borderRadius="md">
-                  <AlertIcon />
-                  <Box>
-                    <AlertTitle>{context.pendingTitle}</AlertTitle>
-                    <AlertDescription>
-                      {status instanceof Error ? status.message : t('common.error')}
-                    </AlertDescription>
-                  </Box>
-                </Alert>
-              ) : null}
+            <EntityResolver />
 
-              <EntityResolver />
+            <Divider />
 
-              <Divider />
+            <Flex justifyContent="space-between" gap={3} flexWrap="wrap">
+              <Button variant="outline" onClick={onBack} isDisabled={isSubmitting}>
+                {context.backLabel}
+              </Button>
+              <Button
+                colorScheme="blue"
+                type="submit"
+                isLoading={isSubmitting}
+                isDisabled={!isValid || isSubmitting || isLoadingVenues}
+              >
+                {status ? context.retryLabel : context.submitLabel}
+              </Button>
+            </Flex>
 
-              <Flex justifyContent="space-between" gap={3} flexWrap="wrap">
-                <Button variant="outline" onClick={onBack} isDisabled={isSubmitting}>
-                  {context.backLabel}
-                </Button>
-                <Button colorScheme="blue" type="submit" isLoading={isSubmitting} isDisabled={!isValid || isSubmitting}>
-                  {status ? context.retryLabel : context.submitLabel}
-                </Button>
-              </Flex>
-
-              <Text fontSize="xs" color="gray.500">
-                Scope: {values.scope}. The selected entity is used to load policy data.
-              </Text>
-            </Stack>
-          </Form>
-        );
-      }}
+            <Text fontSize="xs" color="gray.500">
+              Scope: {values.scope}. The selected entity is used to load policy data.
+            </Text>
+          </Stack>
+        </Form>
+      )}
     </Formik>
   );
 };
