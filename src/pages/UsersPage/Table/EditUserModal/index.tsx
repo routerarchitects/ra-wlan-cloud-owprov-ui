@@ -6,10 +6,11 @@ import { useTranslation } from 'react-i18next';
 import { Modal } from '../../../../components/Modals/Modal';
 import ActionsDropdown from '../ActionsDropdown';
 import UpdateUserForm from './Form';
-import { useAuth } from 'contexts/AuthProvider';
 import SaveButton from 'components/Buttons/SaveButton';
 import ToggleEditButton from 'components/Buttons/ToggleEditButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
+import { useAuth } from 'contexts/AuthProvider';
+import { useGetOperator } from 'hooks/Network/Operators';
 import { useGetUser, User } from 'hooks/Network/Users';
 import useFormRef from 'hooks/useFormRef';
 
@@ -30,6 +31,12 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
   const canFetchUser = userId !== '' && isOpen;
   const { data: user, isFetching, refetch } = useGetUser({ id: userId ?? '', enabled: canFetchUser });
   const canManageAccess = authUser?.userRole === 'root' || authUser?.userRole === 'admin';
+  const ownerOperatorId = user?.owner?.startsWith('operator:') ? user.owner.split(':')[1] : '';
+  const { data: ownerOperator, isFetching: isFetchingOwnerOperator } = useGetOperator({
+    enabled: canManageAccess && ownerOperatorId.length > 0,
+    id: ownerOperatorId,
+  });
+  const initialAccessEntityId = ownerOperatorId.length > 0 ? ownerOperator?.entityId : user?.owner;
 
   const closeModal = () => (form.dirty ? openConfirm() : onClose());
 
@@ -90,13 +97,14 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
           </>
         }
       >
-        {!isFetching && user ? (
+        {!isFetching && !isFetchingOwnerOperator && user ? (
           <UpdateUserForm
             editing={editing}
             canManageAccess={canManageAccess}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             selectedUser={user}
+            initialAccessEntityId={initialAccessEntityId}
             isOpen={isOpen}
             onClose={onClose}
             formRef={formRef}

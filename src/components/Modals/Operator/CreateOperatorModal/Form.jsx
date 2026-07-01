@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { SimpleGrid } from '@chakra-ui/react';
+import { Alert, AlertIcon, SimpleGrid } from '@chakra-ui/react';
 import { Formik, Form } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import DeviceRulesField from 'components/CustomFields/DeviceRulesField';
 import IpDetectionModalField from 'components/CustomFields/IpDetectionModalField';
+import SelectField from 'components/FormFields/SelectField';
 import StringField from 'components/FormFields/StringField';
 import { CreateOperatorSchema } from 'constants/formSchemas';
 import { useCreateOperator } from 'hooks/Network/Operators';
@@ -16,9 +17,24 @@ const propTypes = {
   onClose: PropTypes.func.isRequired,
   refresh: PropTypes.func.isRequired,
   formRef: PropTypes.instanceOf(Object).isRequired,
+  isRootUser: PropTypes.bool.isRequired,
+  operatorEntities: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
+  hasOperatorCreateScope: PropTypes.bool.isRequired,
+  isOperatorEntitiesLoading: PropTypes.bool.isRequired,
+  isOperatorEntitiesError: PropTypes.bool.isRequired,
 };
 
-const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
+const CreateOperatorForm = ({
+  isOpen,
+  onClose,
+  refresh,
+  formRef,
+  isRootUser,
+  operatorEntities,
+  hasOperatorCreateScope,
+  isOperatorEntitiesLoading,
+  isOperatorEntitiesError,
+}) => {
   const { t } = useTranslation();
   const [formKey, setFormKey] = useState(uuid());
   const { onSuccess, onError } = useMutationResult({
@@ -29,13 +45,23 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
   });
   const create = useCreateOperator();
 
-  const createParameters = ({ name, description, note, sourceIP, deviceRules, firmwareRCOnly, registrationId }) => ({
+  const createParameters = ({
+    name,
+    description,
+    note,
+    sourceIP,
+    deviceRules,
+    firmwareRCOnly,
+    registrationId,
+    entityId,
+  }) => ({
     name,
     deviceRules,
     sourceIP,
     registrationId,
     description,
     firmwareRCOnly,
+    ...(isRootUser ? {} : { entityId }),
     notes: note.length > 0 ? [{ note }] : undefined,
   });
 
@@ -50,6 +76,7 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
       initialValues={{
         name: '',
         description: '',
+        entityId: '',
         deviceRules: {
           rrm: 'inherit',
           rcOnly: 'inherit',
@@ -60,7 +87,7 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
         sourceIP: [],
         note: '',
       }}
-      validationSchema={CreateOperatorSchema(t)}
+      validationSchema={CreateOperatorSchema(t, { requireEntityId: !isRootUser })}
       onSubmit={(formData, { setSubmitting, resetForm }) =>
         create.mutateAsync(createParameters(formData), {
           onSuccess: () => {
@@ -74,6 +101,31 @@ const CreateOperatorForm = ({ isOpen, onClose, refresh, formRef }) => {
     >
       <Form>
         <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
+          {!isRootUser && (
+            <>
+              <SelectField
+                name="entityId"
+                label={t('operator.associate_entity')}
+                options={[
+                  { value: '', label: 'Select associated entity' },
+                  ...operatorEntities.map(({ entityId, entityName, operatorName }) => ({
+                    value: entityId,
+                    label: [operatorName, entityName ? `${entityName} (${entityId})` : entityId]
+                      .filter(Boolean)
+                      .join(' - '),
+                  })),
+                ]}
+                isRequired
+                isDisabled={isOperatorEntitiesLoading || !hasOperatorCreateScope}
+              />
+              {!isOperatorEntitiesLoading && !hasOperatorCreateScope && !isOperatorEntitiesError && (
+                <Alert status="warning" borderRadius="md">
+                  <AlertIcon />
+                  This account has no operator-create scope.
+                </Alert>
+              )}
+            </>
+          )}
           <StringField name="name" label={t('common.name')} isRequired />
           <StringField name="description" label={t('common.description')} />
           <StringField name="registrationId" label={t('operator.registration_id')} isRequired />

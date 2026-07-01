@@ -9,7 +9,6 @@ import {
   Divider,
   Flex,
   SimpleGrid,
-  Spinner,
   Stack,
   Text,
 } from '@chakra-ui/react';
@@ -19,7 +18,7 @@ import * as Yup from 'yup';
 import MultiSelectField from 'components/FormFields/MultiSelectField';
 import SelectField from 'components/FormFields/SelectField';
 import { useAuth } from 'contexts/AuthProvider';
-import { useGetEntities } from 'hooks/Network/Entity';
+import { useGetEntities, useGetEntity } from 'hooks/Network/Entity';
 import {
   getTemplateAccess,
   MANAGEMENT_ACCESS_PERMISSIONS,
@@ -30,7 +29,7 @@ import {
   useGetManagementPolicyForUserEntity,
   useAssignUserAccess,
 } from 'hooks/Network/ManagementAccess';
-import { useGetVenues } from 'hooks/Network/Venues';
+import { useGetSelectVenues } from 'hooks/Network/Venues';
 
 type AssignAccessFormValues = {
   entityId: string;
@@ -60,11 +59,6 @@ type Props = {
   };
 };
 
-const scopeOptions: { label: string; value: ManagementScope }[] = [
-  { label: 'Entity', value: 'entity' },
-  { label: 'Venue', value: 'venue' },
-];
-
 const roleTemplateOptions: { label: string; value: ManagementRoleTemplate }[] = [
   { label: 'Admin', value: 'Admin' },
   { label: 'Viewer', value: 'Viewer' },
@@ -87,6 +81,10 @@ const resourceOptions = [
   { label: 'Management Role', value: 'managementRole' },
 ];
 
+const privilegedResourceValues = ['managementPolicy', 'managementRole'];
+
+const canManagePrivilegedResources = (role?: string) => role === 'root' || role === 'admin';
+
 const getInitialAccess = (scope: ManagementScope, roleTemplate: ManagementRoleTemplate) =>
   roleTemplate === 'Custom' ? [] : getTemplateAccess(scope, roleTemplate);
 
@@ -104,93 +102,19 @@ const getInitialResourcePermissions = (scope: ManagementScope, roleTemplate: Man
 const getResourcePermissionsFromPolicy = (policy?: ManagementPolicyApiResponse): ManagementResourceAccess[] =>
   Array.from(
     (policy?.entries ?? []).reduce((resourceMap, entry) => {
-      entry.resources.filter((resource) => resource !== '').forEach((resource) => {
-        const existingAccess = resourceMap.get(resource) ?? [];
-        resourceMap.set(resource, Array.from(new Set([...existingAccess, ...(entry.access.length > 0 ? entry.access : ['NOACCESS'])])));
-      });
+      entry.resources
+        .filter((resource) => resource !== '')
+        .forEach((resource) => {
+          const existingAccess = resourceMap.get(resource) ?? [];
+          resourceMap.set(
+            resource,
+            Array.from(new Set([...existingAccess, ...(entry.access.length > 0 ? entry.access : ['NOACCESS'])])),
+          );
+        });
       return resourceMap;
     }, new Map<string, ManagementAccessPermission[]>()),
     ([resource, access]) => ({ resource, access }),
   );
-
-const extractAllowedEntityIds = (securityPolicy?: string) => {
-  if (!securityPolicy) return [];
-
-  try {
-    const parsed = JSON.parse(securityPolicy) as unknown;
-    const ids = new Set<string>();
-
-    const visit = (value: unknown) => {
-      if (!value) return;
-      if (typeof value === 'string') {
-        ids.add(value);
-        return;
-      }
-      if (Array.isArray(value)) {
-        value.forEach(visit);
-        return;
-      }
-      if (typeof value !== 'object') return;
-
-      Object.entries(value as Record<string, unknown>).forEach(([key, nestedValue]) => {
-        if (['entity', 'entityId'].includes(key) && typeof nestedValue === 'string') {
-          ids.add(nestedValue);
-          return;
-        }
-        if (['entities', 'entityIds'].includes(key)) {
-          visit(nestedValue);
-        }
-      });
-    };
-
-    visit(parsed);
-    return Array.from(ids);
-  } catch {
-    return [];
-  }
-};
-
-const extractAllowedVenueIds = (securityPolicy?: string) => {
-  if (!securityPolicy) return [];
-
-  try {
-    const parsed = JSON.parse(securityPolicy) as unknown;
-    const ids = new Set<string>();
-
-    const visit = (value: unknown) => {
-      if (!value) return;
-      if (typeof value === 'string') {
-        ids.add(value);
-        return;
-      }
-      if (Array.isArray(value)) {
-        value.forEach(visit);
-        return;
-      }
-      if (typeof value !== 'object') return;
-
-      Object.entries(value as Record<string, unknown>).forEach(
-        ([key, nestedValue]) => {
-          if (
-            ['venue', 'venueId'].includes(key) &&
-            typeof nestedValue === 'string'
-          ) {
-            ids.add(nestedValue);
-            return;
-          }
-          if (['venues', 'venueIds'].includes(key)) {
-            visit(nestedValue);
-          }
-        }
-      );
-    };
-
-    visit(parsed);
-    return Array.from(ids);
-  } catch {
-    return [];
-  }
-};
 
 const ValidationSchema = (t: (key: string) => string) =>
   Yup.object().shape({
@@ -217,75 +141,75 @@ const ValidationSchema = (t: (key: string) => string) =>
     roleTemplate: Yup.string().oneOf(['Admin', 'Viewer', 'Support', 'Custom']).required(t('form.required')),
   });
 
-const EntityResolver = () => {
+const AccessPolicyFields = () => {
   const { values, setFieldValue } = useFormikContext<AssignAccessFormValues>();
   const { user: authUser } = useAuth();
-  const entityQuery = useGetEntities();
-  const { data: venues } = useGetVenues();
-
-  // NOTE: Client-side filtering is for UX convenience only and is not a security control.
-  // Enforced authorization check runs on the backend/API validation boundary.
-  const allowedEntityIds = useMemo(() => {
-    if (authUser?.userRole === 'root') return [];
-
-    const ids = extractAllowedEntityIds(authUser?.securityPolicy);
-    if (ids.length > 0) return ids;
-
-    return authUser?.owner ? [authUser.owner] : [];
-  }, [authUser?.owner, authUser?.securityPolicy, authUser?.userRole]);
-
-  const visibleEntities = useMemo(() => {
-    if (allowedEntityIds.length === 0) return entityQuery.data ?? [];
-
-    return (entityQuery.data ?? []).filter((entity) => allowedEntityIds.includes(entity.id));
-  }, [allowedEntityIds, entityQuery.data]);
-
-  const allowedVenueIds = useMemo(() => {
-    if (authUser?.userRole === 'root') return [];
-    return extractAllowedVenueIds(authUser?.securityPolicy);
-  }, [authUser?.securityPolicy, authUser?.userRole]);
-
-  const visibleVenues = useMemo(() => {
-    if (!values.entityId) return [];
-    const entityVenues = (venues ?? []).filter((v) => v.entity === values.entityId);
-    if (authUser?.userRole === 'root') return entityVenues;
-
-    if (allowedVenueIds.length > 0) {
-      return entityVenues.filter((v) => allowedVenueIds.includes(v.id));
-    }
-    return entityVenues;
-  }, [venues, values.entityId, authUser?.userRole, allowedVenueIds]);
+  const { data: entities } = useGetEntities();
+  const selectedEntity = useGetEntity({
+    id: values.entityId,
+  });
+  const selectedEntityVenues = useMemo(() => selectedEntity.data?.venues ?? [], [selectedEntity.data?.venues]);
+  const selectedVenues = useGetSelectVenues({
+    select: selectedEntityVenues,
+  });
 
   const filteredResourceOptions = useMemo(() => {
-    if (authUser?.userRole === 'root') return resourceOptions;
-    return resourceOptions.filter(
-      (opt) => opt.value !== 'managementPolicy' && opt.value !== 'managementRole',
-    );
+    if (canManagePrivilegedResources(authUser?.userRole)) return resourceOptions;
+    return resourceOptions.filter((opt) => !privilegedResourceValues.includes(opt.value));
   }, [authUser?.userRole]);
 
+  const entityOptions = useMemo(() => {
+    const options = [{ label: 'Select entity', value: '' }, ...(entities ?? []).map((entity) => ({
+      label: entity.name,
+      value: entity.id,
+    }))];
+
+    if (values.entityId && !options.some((option) => option.value === values.entityId)) {
+      options.push({
+        label: values.entityId,
+        value: values.entityId,
+      });
+    }
+
+    return options;
+  }, [entities, values.entityId]);
+
+  const venueOptions = useMemo(() => {
+    const options = [{ label: 'Select venue', value: '' }, ...(selectedVenues.data ?? []).map((venue) => ({
+      label: venue.name,
+      value: venue.id,
+    }))];
+
+    if (values.venueId && !options.some((option) => option.value === values.venueId)) {
+      options.push({
+        label: values.venueId,
+        value: values.venueId,
+      });
+    }
+
+    return options;
+  }, [selectedVenues.data, values.venueId]);
+
+  const getResourceOptions = (resource: string) => {
+    if (filteredResourceOptions.some((option) => option.value === resource)) return filteredResourceOptions;
+
+    const selectedResourceOption = resourceOptions.find((option) => option.value === resource);
+    if (!selectedResourceOption) return filteredResourceOptions;
+
+    return [...filteredResourceOptions, selectedResourceOption];
+  };
+
   const policyQuery = useGetManagementPolicyForUserEntity({
-    enabled: Boolean(values.entityId) && Boolean(values.userId),
+    enabled:
+      Boolean(values.entityId) &&
+      !values.entityId.startsWith('operator:') &&
+      Boolean(values.userId) &&
+      (values.scope === 'entity' || Boolean(values.venueId)),
     entityId: values.entityId,
     userId: values.userId,
+    venueId: values.scope === 'venue' ? values.venueId : undefined,
   });
   const existingPolicy = policyQuery.data?.policy;
-
-  useEffect(() => {
-    if (values.scope !== 'venue') {
-      if (values.venueId !== '') {
-        setFieldValue('venueId', '', false);
-      }
-    }
-  }, [values.scope, values.venueId, setFieldValue]);
-
-  useEffect(() => {
-    if (values.scope === 'venue' && values.venueId !== '') {
-      const isPresent = visibleVenues.some((v) => v.id === values.venueId);
-      if (!isPresent) {
-        setFieldValue('venueId', '', false);
-      }
-    }
-  }, [values.entityId, visibleVenues, values.scope, values.venueId, setFieldValue]);
 
   useEffect(() => {
     if (!values.entityId) return;
@@ -298,13 +222,11 @@ const EntityResolver = () => {
     setFieldValue('resourcePermissions', getInitialResourcePermissions(values.scope, values.roleTemplate), false);
   }, [existingPolicy?.id, setFieldValue, values.entityId, values.roleTemplate, values.scope]);
 
-  if (entityQuery.isLoading) {
-    return (
-      <Flex alignItems="center" justifyContent="center" py={6}>
-        <Spinner />
-      </Flex>
-    );
-  }
+  useEffect(() => {
+    if (values.scope === 'entity' && values.venueId) {
+      setFieldValue('venueId', '', false);
+    }
+  }, [setFieldValue, values.scope, values.venueId]);
 
   return (
     <Stack spacing={4}>
@@ -312,57 +234,61 @@ const EntityResolver = () => {
         <SelectField
           name="scope"
           label="Scope"
-          options={scopeOptions}
+          options={[
+            { label: 'Entity', value: 'entity' },
+            { label: 'Venue', value: 'venue' },
+          ]}
           isRequired
           onChangeEffect={(event) => {
-            const nextScope = event.target.value as ManagementScope;
-            setFieldValue('resourcePermissions', getInitialResourcePermissions(nextScope, values.roleTemplate), false);
+            if (event.target.value === 'entity' && values.venueId) {
+              setFieldValue('venueId', '', false);
+            }
           }}
         />
         <SelectField
           name="entityId"
           label="Entity"
-          options={[
-            { label: 'Select entity', value: '' },
-            ...visibleEntities.map((entity) => ({
-              label: entity.name,
-              value: entity.id,
-            })),
-          ]}
+          options={entityOptions}
           isRequired
+          onChangeEffect={() => {
+            if (values.venueId) {
+              setFieldValue('venueId', '', false);
+            }
+          }}
         />
-        <SelectField name="roleTemplate" label="Role Template" options={roleTemplateOptions} isRequired />
-        {values.scope === 'venue' ? (
+      </SimpleGrid>
+
+      {values.scope === 'venue' ? (
+        <SimpleGrid minChildWidth="280px" spacing="20px">
           <SelectField
             name="venueId"
             label="Venue"
-            options={[
-              { label: 'Select venue', value: '' },
-              ...visibleVenues.map((v) => ({
-                label: v.name,
-                value: v.id,
-              })),
-            ]}
+            options={venueOptions}
             isRequired
+            isDisabled={!values.entityId}
           />
-        ) : null}
-      </SimpleGrid>
+        </SimpleGrid>
+      ) : null}
 
-      {values.scope === 'venue' && visibleVenues.length === 0 && values.entityId !== '' && (
-        <Alert status="warning" borderRadius="md" mt={2}>
+      {values.scope === 'venue' && values.entityId && (selectedVenues.data ?? []).length === 0 ? (
+        <Alert status="warning" borderRadius="md">
           <AlertIcon />
           <Box>
             <AlertTitle>No Venues Found</AlertTitle>
-            <AlertDescription>The selected entity has no manageable venues.</AlertDescription>
+            <AlertDescription>The selected entity has no accessible venues.</AlertDescription>
           </Box>
         </Alert>
-      )}
+      ) : null}
+
+      <SimpleGrid minChildWidth="280px" spacing="20px">
+        <SelectField name="roleTemplate" label="Role Template" options={roleTemplateOptions} isRequired />
+      </SimpleGrid>
 
       <Box borderWidth="1px" borderRadius="md" p={4}>
         <Stack spacing={3}>
           <Text fontWeight="semibold">Resource Permissions</Text>
           <Text fontSize="sm" color="gray.500">
-            Configure access per resource. Existing policies for this user and entity are loaded automatically.
+            Configure access per resource. Existing policies are loaded automatically.
           </Text>
           <FieldArray name="resourcePermissions">
             {({ push, remove }) => (
@@ -378,8 +304,12 @@ const EntityResolver = () => {
                     <SelectField
                       name={`resourcePermissions.${index}.resource`}
                       label={index === 0 ? 'Resource' : ''}
-                      options={filteredResourceOptions}
+                      options={getResourceOptions(values.resourcePermissions[index]?.resource ?? '')}
                       isRequired
+                      isDisabled={
+                        !canManagePrivilegedResources(authUser?.userRole) &&
+                        privilegedResourceValues.includes(values.resourcePermissions[index]?.resource ?? '')
+                      }
                     />
                     <MultiSelectField
                       name={`resourcePermissions.${index}.access`}
@@ -399,7 +329,12 @@ const EntityResolver = () => {
                 ))}
                 <Button
                   variant="outline"
-                  onClick={() => push({ resource: '', access: [getInitialAccess(values.scope, values.roleTemplate)[0] ?? 'NOACCESS'] })}
+                  onClick={() =>
+                    push({
+                      resource: '',
+                      access: [getInitialAccess(values.scope, values.roleTemplate)[0] ?? 'NOACCESS'],
+                    })
+                  }
                 >
                   Add Resource
                 </Button>
@@ -414,7 +349,7 @@ const EntityResolver = () => {
           User: {values.userEmail}
         </Text>
         <Text fontSize="sm" color="gray.500">
-          Access is loaded for the selected entity.
+          Access is loaded automatically for the selected entity and venue.
         </Text>
         {existingPolicy && (
           <Text fontSize="sm" color="green.500" mt={1}>
@@ -423,14 +358,9 @@ const EntityResolver = () => {
         )}
         {!existingPolicy && values.entityId && (
           <Text fontSize="sm" color="orange.500" mt={1}>
-            No policy found for this user and entity. Submit will create one.
+            No policy found for this user. Submit will create one.
           </Text>
         )}
-        {visibleEntities.length === 0 ? (
-          <Text fontSize="sm" color="red.500" mt={1}>
-            No permitted entities available to select.
-          </Text>
-        ) : null}
       </Box>
     </Stack>
   );
@@ -459,7 +389,6 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
   const { t } = useTranslation();
   const assignAccessMutation = useAssignUserAccess();
   const { user: authUser } = useAuth();
-  const { isLoading: isLoadingVenues } = useGetVenues();
 
   return (
     <Formik
@@ -491,7 +420,7 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
         }
       }}
     >
-      {({ isSubmitting, isValid, status, values }) => (
+      {({ isSubmitting, isValid, status }) => (
         <Form>
           <Stack spacing={4}>
             <Alert status="info" borderRadius="md">
@@ -507,14 +436,12 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
                 <AlertIcon />
                 <Box>
                   <AlertTitle>{context.pendingTitle}</AlertTitle>
-                  <AlertDescription>
-                    {status instanceof Error ? status.message : t('common.error')}
-                  </AlertDescription>
+                  <AlertDescription>{status instanceof Error ? status.message : t('common.error')}</AlertDescription>
                 </Box>
               </Alert>
             ) : null}
 
-            <EntityResolver />
+            <AccessPolicyFields />
 
             <Divider />
 
@@ -526,15 +453,11 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
                 colorScheme="blue"
                 type="submit"
                 isLoading={isSubmitting}
-                isDisabled={!isValid || isSubmitting || isLoadingVenues}
+                isDisabled={!isValid || isSubmitting}
               >
                 {status ? context.retryLabel : context.submitLabel}
               </Button>
             </Flex>
-
-            <Text fontSize="xs" color="gray.500">
-              Scope: {values.scope}. The selected entity is used to load policy data.
-            </Text>
           </Stack>
         </Form>
       )}

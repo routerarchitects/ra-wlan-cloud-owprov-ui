@@ -2,8 +2,8 @@ import * as React from 'react';
 import { useDisclosure, useToast } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '../../../../components/Modals/Modal';
-import CreateUserForm, { CreatedUserResult, CreateUserFormValues } from './Form';
 import AssignAccessForm from './AssignAccessForm';
+import CreateUserForm, { CreatedUserResult, CreateUserFormValues } from './Form';
 import CreateButton from 'components/Buttons/CreateButton';
 import SaveButton from 'components/Buttons/SaveButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
@@ -72,6 +72,31 @@ const CreateUserModal = () => {
     closeCancelAndForm();
   };
 
+  const renderStep = () => {
+    if (step === 'create') {
+      return <CreateUserForm isOpen={isOpen} onCreated={onCreated} formRef={formRef} />;
+    }
+
+    if (!createdUser) return null;
+
+    return (
+      <AssignAccessForm
+        onBack={() => setStep('create')}
+        onComplete={onAssigned}
+        initialEntityId={createdUser.accessEntityId}
+        user={createdUser}
+        context={{
+          heading: 'User created',
+          description: 'Configure the management policy for {{email}} before closing this flow.',
+          pendingTitle: 'User created, access pending',
+          backLabel: 'Back',
+          submitLabel: 'Assign Access',
+          retryLabel: 'Retry Assignment',
+        }}
+      />
+    );
+  };
+
   return (
     <>
       {user?.userRole === 'CSR' ? null : <CreateButton onClick={onOpen} ml={2} />}
@@ -85,23 +110,7 @@ const CreateUserModal = () => {
           ) : null
         }
       >
-        {step === 'create' ? (
-          <CreateUserForm isOpen={isOpen} onCreated={onCreated} formRef={formRef} />
-        ) : createdUser ? (
-          <AssignAccessForm
-            onBack={() => setStep('create')}
-            onComplete={onAssigned}
-            user={createdUser}
-            context={{
-              heading: 'User created',
-              description: 'Configure the management policy for {{email}} before closing this flow.',
-              pendingTitle: 'User created, access pending',
-              backLabel: 'Back',
-              submitLabel: 'Assign Access',
-              retryLabel: 'Retry Assignment',
-            }}
-          />
-        ) : null}
+        {renderStep()}
       </Modal>
       <ConfirmCloseAlert isOpen={showConfirm} confirm={closeCancelAndForm} cancel={closeConfirm} />
     </>

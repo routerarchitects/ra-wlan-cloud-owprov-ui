@@ -425,7 +425,7 @@ export const SubscriberDeviceContactSchema = (t: (str: string) => string) =>
   });
 
 // Location Schemas
-export const SubscriberDeviceLocationSchema = (t: (str: string) => string) =>
+export const SubscriberDeviceLocationSchema = () =>
   Yup.object()
     .shape({
       type: Yup.string(),
@@ -476,13 +476,17 @@ export const SubscriberDeviceSchema = (t: (str: string) => string) =>
     suspended: Yup.bool().default(false),
   });
 
-export const CreateOperatorSchema = (t: (str: string) => string) =>
+export const CreateOperatorSchema = (
+  t: (str: string) => string,
+  { requireEntityId = false }: { requireEntityId?: boolean } = {},
+) =>
   Yup.object().shape({
     name: Yup.string().required(t('form.required')).test('name_test', t('common.name_error'), testObjectName),
     description: Yup.string(),
     deviceRules: DeviceRulesSchema(t).required('form.required'),
     registrationId: Yup.string().required(t('form.required')),
     sourceIP: Yup.array().of(Yup.string()),
+    entityId: requireEntityId ? Yup.string().required(t('form.required')) : Yup.string().notRequired(),
   });
 export const EditOperatorSchema = (t: (str: string) => string) =>
   Yup.object().shape({

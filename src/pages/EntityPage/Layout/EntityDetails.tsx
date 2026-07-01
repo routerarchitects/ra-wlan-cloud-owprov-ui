@@ -119,21 +119,21 @@ const EntityDetails = ({ id }: Props) => {
                   },
                 )
               }
-            >
-              <Form>
-                <Flex>
-                  <StringField name="name" label={t('common.name')} isDisabled={!editing} isRequired w="240px" />
-                  <FormControl ml={4} w="200px">
-                    <FormLabel>{t('common.modified')}</FormLabel>
-                    <Box pt={2}>
-                      <FormattedDate date={getEntity.data?.modified} />
-                    </Box>
-                  </FormControl>
-                </Flex>
-                <StringField name="description" label={t('common.description')} isDisabled={!editing} isArea h="80px" />
-              </Form>
-            </Formik>
-          ) : (
+              >
+                <Form>
+                  <Flex>
+                    <StringField name="name" label={t('common.name')} isDisabled={!editing} isRequired w="240px" />
+                    <FormControl ml={4} w="200px">
+                      <FormLabel>{t('common.modified')}</FormLabel>
+                      <Box pt={2}>
+                        <FormattedDate date={getEntity.data?.modified} />
+                      </Box>
+                    </FormControl>
+                  </Flex>
+                  <StringField name="description" label={t('common.description')} isDisabled={!editing} isArea h="80px" />
+                </Form>
+              </Formik>
+            ) : (
             <Center my={6}>
               <Spinner size="xl" />
             </Center>

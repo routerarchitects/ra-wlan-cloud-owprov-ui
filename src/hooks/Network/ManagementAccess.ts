@@ -382,11 +382,16 @@ export const getManagementRoles = async ({ entityId, venueId }: { entityId: stri
 export const getManagementRoleForUserEntity = async ({
   entityId,
   userId,
+  venueId,
 }: {
   entityId: string;
   userId: string;
+  venueId?: string;
 }) => {
-  const response = await axiosProv.get(`managementRole?userId=${encodeURIComponent(userId)}&entityId=${encodeURIComponent(entityId)}`);
+  const venueQuery = venueId !== undefined ? `&venue=${encodeURIComponent(venueId)}` : '';
+  const response = await axiosProv.get(
+    `managementRole?userId=${encodeURIComponent(userId)}&entityId=${encodeURIComponent(entityId)}${venueQuery}`,
+  );
 
   return getCollection<ManagementRoleApiResponse>(response.data as ManagementRoleQueryResponse, [
     'managementRoles',
@@ -465,19 +470,24 @@ export const useGetManagementPolicyForUserEntity = ({
   enabled,
   entityId,
   userId,
+  venueId,
 }: {
   enabled: boolean;
   entityId: string;
   userId: string;
+  venueId?: string;
 }) => {
   const { t } = useTranslation();
   const toast = useToast();
+  const desiredVenue = venueId ?? '';
 
   return useQuery(
-    ['get-management-policy-for-user-entity', entityId, userId],
+    ['get-management-policy-for-user-entity', entityId, desiredVenue, userId],
     async () => {
-      const roles = await getManagementRoleForUserEntity({ entityId, userId });
-      const role = roles[0];
+      const roles = await getManagementRoleForUserEntity({ entityId, userId, venueId: desiredVenue || undefined });
+      const role =
+        roles.find((candidate) => (candidate.venue ?? '') === desiredVenue) ??
+        roles.find((candidate) => (candidate.venue ?? '') === '');
       const policyId = role?.managementPolicyId ?? role?.managementPolicy ?? '';
 
       if (!policyId) return { policy: undefined, role: role ?? undefined };
@@ -781,7 +791,7 @@ export const assignUserAccess = async ({
 
   // Privilege Escalation Prevention & Authorization checks
   const actingRole = currentUserRole ?? 'root';
-  if (actingRole !== 'root') {
+  if (actingRole !== 'root' && actingRole !== 'admin') {
     if (!currentUserId) {
       throw new Error(
         'Caller authentication context missing: cannot verify permissions'
@@ -821,13 +831,14 @@ export const assignUserAccess = async ({
       }
     }
 
-    const hasPrivilegedResource = (resourcePermissions ?? []).some(
-      (r) => r.resource === 'managementPolicy' || r.resource === 'managementRole'
-    ) || resources.some((r) => r === 'managementPolicy' || r === 'managementRole');
+    const hasPrivilegedResource =
+      (resourcePermissions ?? []).some(
+        (r) => r.resource === 'managementPolicy' || r.resource === 'managementRole'
+      ) || resources.some((r) => r === 'managementPolicy' || r === 'managementRole');
 
     if (hasPrivilegedResource) {
       throw new Error(
-        'Only root users can assign access to managementPolicy or managementRole'
+        'Only root or admin users can assign access to managementPolicy or managementRole'
       );
     }
 

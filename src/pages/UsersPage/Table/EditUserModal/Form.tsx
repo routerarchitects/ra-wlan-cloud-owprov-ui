@@ -6,6 +6,7 @@ import { Formik, Form, FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import * as Yup from 'yup';
+import AssignAccessForm from '../CreateUserModal/AssignAccessForm';
 import { NotesField } from 'components/FormFields/NotesField';
 import SelectField from 'components/FormFields/SelectField';
 import StringField from 'components/FormFields/StringField';
@@ -13,7 +14,6 @@ import { testObjectName, testRegex } from 'constants/formTests';
 import { useAuth } from 'contexts/AuthProvider';
 import { User, useUpdateUser } from 'hooks/Network/Users';
 import useApiRequirements from 'hooks/useApiRequirements';
-import AssignAccessForm from '../CreateUserModal/AssignAccessForm';
 
 type Props = {
   editing: boolean;
@@ -23,10 +23,21 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   selectedUser: User;
+  initialAccessEntityId?: string;
   formRef: React.Ref<FormikProps<User>>;
 };
 
-const UpdateUserForm = ({ editing, canManageAccess, activeTab, setActiveTab, isOpen, onClose, selectedUser, formRef }: Props) => {
+const UpdateUserForm = ({
+  editing,
+  canManageAccess,
+  activeTab,
+  setActiveTab,
+  isOpen,
+  onClose,
+  selectedUser,
+  initialAccessEntityId,
+  formRef,
+}: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const { user } = useAuth();
@@ -187,7 +198,7 @@ const UpdateUserForm = ({ editing, canManageAccess, activeTab, setActiveTab, isO
                 <AssignAccessForm
                   onBack={() => setActiveTab(0)}
                   onComplete={handleAccessAssignmentComplete}
-                  initialEntityId={selectedUser.owner}
+                  initialEntityId={initialAccessEntityId}
                   user={{
                     email: selectedUser.email,
                     userId: selectedUser.id,

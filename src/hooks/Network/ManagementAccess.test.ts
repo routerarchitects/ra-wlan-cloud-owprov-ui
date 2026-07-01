@@ -1264,7 +1264,9 @@ describe('ManagementAccess helpers', () => {
     assert.deepEqual(merged[0]?.access, ['READ']);
   });
 
-  it('security: Admin attempts to grant managementPolicy + FULL -> rejected', async () => {
+  it('security: Admin attempts to grant managementPolicy + FULL -> allowed', async () => {
+    const postCalls: unknown[][] = [];
+    const putCalls: unknown[][] = [];
     setAxiosMocks({
       get: async (url: string) => {
         if (url === 'managementRole?userId=admin-1&entityId=entity-1') {
@@ -1284,28 +1286,39 @@ describe('ManagementAccess helpers', () => {
         }
         throw new Error(`Unexpected GET ${url}`);
       },
+      post: async (url: string, payload: unknown) => {
+        postCalls.push([url, payload]);
+        if (url === 'managementPolicy/create') return { data: { id: 'policy-admin-1' } };
+        if (url === 'managementRole/create') return { data: { id: 'role-admin-1' } };
+        throw new Error(`Unexpected POST ${url}`);
+      },
+      put: async (url: string, payload: unknown) => {
+        putCalls.push([url, payload]);
+        return { data: {} };
+      },
     });
 
-    await assert.rejects(
-      assignUserAccess({
-        access: ['FULL'],
-        resources: ['managementPolicy'],
-        entityId: 'entity-1',
-        roleTemplate: 'Custom',
-        scope: 'entity',
-        userEmail: 'target@example.com',
-        userId: 'user-2',
-        currentUserRole: 'admin',
-        currentUserId: 'admin-1',
-      }),
-      (err: Error) =>
-        err.message.includes(
-          'Only root users can assign access to managementPolicy or managementRole'
-        )
-    );
+    const result = await assignUserAccess({
+      access: ['FULL'],
+      resources: ['managementPolicy'],
+      entityId: 'entity-1',
+      roleTemplate: 'Custom',
+      scope: 'entity',
+      userEmail: 'target@example.com',
+      userId: 'user-2',
+      currentUserRole: 'admin',
+      currentUserId: 'admin-1',
+    });
+
+    assert.equal(result.policyId, 'policy-admin-1');
+    assert.equal(result.roleId, 'role-admin-1');
+    assert.equal(postCalls.map(([url]) => url).includes('managementPolicy/create'), true);
+    assert.equal(postCalls.map(([url]) => url).includes('managementRole/create'), true);
   });
 
-  it('security: Admin attempts to grant managementRole + CREATE -> rejected', async () => {
+  it('security: Admin attempts to grant managementRole + CREATE -> allowed', async () => {
+    const postCalls: unknown[][] = [];
+    const putCalls: unknown[][] = [];
     setAxiosMocks({
       get: async (url: string) => {
         if (url === 'managementRole?userId=admin-1&entityId=entity-1') {
@@ -1325,25 +1338,34 @@ describe('ManagementAccess helpers', () => {
         }
         throw new Error(`Unexpected GET ${url}`);
       },
+      post: async (url: string, payload: unknown) => {
+        postCalls.push([url, payload]);
+        if (url === 'managementPolicy/create') return { data: { id: 'policy-admin-1' } };
+        if (url === 'managementRole/create') return { data: { id: 'role-admin-1' } };
+        throw new Error(`Unexpected POST ${url}`);
+      },
+      put: async (url: string, payload: unknown) => {
+        putCalls.push([url, payload]);
+        return { data: {} };
+      },
     });
 
-    await assert.rejects(
-      assignUserAccess({
-        access: ['CREATE'],
-        resources: ['managementRole'],
-        entityId: 'entity-1',
-        roleTemplate: 'Custom',
-        scope: 'entity',
-        userEmail: 'target@example.com',
-        userId: 'user-2',
-        currentUserRole: 'admin',
-        currentUserId: 'admin-1',
-      }),
-      (err: Error) =>
-        err.message.includes(
-          'Only root users can assign access to managementPolicy or managementRole'
-        )
-    );
+    const result = await assignUserAccess({
+      access: ['CREATE'],
+      resources: ['managementRole'],
+      entityId: 'entity-1',
+      roleTemplate: 'Custom',
+      scope: 'entity',
+      userEmail: 'target@example.com',
+      userId: 'user-2',
+      currentUserRole: 'admin',
+      currentUserId: 'admin-1',
+    });
+
+    assert.equal(result.policyId, 'policy-admin-1');
+    assert.equal(result.roleId, 'role-admin-1');
+    assert.equal(postCalls.map(([url]) => url).includes('managementPolicy/create'), true);
+    assert.equal(postCalls.map(([url]) => url).includes('managementRole/create'), true);
   });
 
   it('security: Root grants privileged permissions -> allowed', async () => {
