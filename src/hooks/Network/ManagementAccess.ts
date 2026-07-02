@@ -6,7 +6,7 @@ import { VenueApiResponse } from 'models/Venue';
 import { axiosProv } from 'utils/axiosInstances';
 
 export type ManagementScope = 'entity' | 'venue';
-export type ManagementRoleTemplate = 'Admin' | 'Viewer' | 'Support' | 'Custom';
+export type ManagementRoleTemplate = 'Admin' | 'Installer' | 'Support' | 'Custom';
 export type ManagementAccessPermission = 'NOACCESS' | 'READ' | 'MODIFY' | 'DELETE' | 'LIST' | 'CREATE' | 'FULL';
 export type ManagementResourceAccess = {
   access: ManagementAccessPermission[];
@@ -132,18 +132,18 @@ const TEMPLATE_ACCESS: Record<
       policyScope: 'venue-admin',
     },
   },
-  Viewer: {
+  Installer: {
     entity: {
       access: ['READ', 'LIST'],
       description: 'Read-only entity access',
-      namePrefix: 'Entity Viewer',
-      policyScope: 'entity-viewer',
+      namePrefix: 'Entity Installer',
+      policyScope: 'entity-installer',
     },
     venue: {
       access: ['READ', 'LIST'],
       description: 'Read-only venue access',
-      namePrefix: 'Venue Viewer',
-      policyScope: 'venue-viewer',
+      namePrefix: 'Venue Installer',
+      policyScope: 'venue-installer',
     },
   },
   Support: {

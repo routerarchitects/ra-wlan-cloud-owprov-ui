@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Modal, ModalOverlay, ModalContent, ModalBody, Text } from '@chakra-ui/react';
+import { Box, Modal, ModalOverlay, ModalContent, ModalBody } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import CreateOperatorForm from './Form';
@@ -37,14 +37,8 @@ const CreateOperatorModal = ({ refresh }) => {
         <CreateButton
           onClick={onOpen}
           isDisabled={shouldDisableCreate}
-          label={shouldDisableCreate ? 'No operator-create scope' : undefined}
         />
       </Box>
-      {shouldDisableCreate && (
-        <Text color="orange.400" fontSize="xs" mt={1} ml={2}>
-          No operator-create scope
-        </Text>
-      )}
       <Modal onClose={closeModal} isOpen={isOpen} size="xl">
         <ModalOverlay />
         <ModalContent maxWidth={{ sm: '600px', md: '700px', lg: '800px', xl: '50%' }}>

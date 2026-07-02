@@ -479,7 +479,7 @@ describe('ManagementAccess helpers', () => {
               }),
             },
           ],
-          name: 'Entity Viewer Full Access Policy',
+          name: 'Entity Installer Full Access Policy',
         },
       ],
       {
@@ -508,7 +508,7 @@ describe('ManagementAccess helpers', () => {
                   venue: '',
                   managementPolicy: 'policy-entity-viewer',
                   users: ['user-1'],
-                  name: 'Entity Viewer - user@example.com',
+                  name: 'Entity Installer - user@example.com',
                 },
               ],
             },
@@ -520,7 +520,7 @@ describe('ManagementAccess helpers', () => {
               id: 'policy-entity-viewer',
               entity: 'entity-1',
               venue: '',
-              name: 'Entity Viewer Full Access Policy',
+              name: 'Entity Installer Full Access Policy',
               entries: [
                 {
                   users: ['user-1'],
@@ -659,16 +659,16 @@ describe('ManagementAccess helpers', () => {
   });
 
   it('regression: user has multiple roles returned in different order, assignment still picks the correct one', async () => {
-    const runTestWithOrder = async (rolesOrder: 'viewer-first' | 'admin-first') => {
+    const runTestWithOrder = async (rolesOrder: 'installer-first' | 'admin-first') => {
       const putCalls: Array<[string, unknown]> = [];
 
-      const roleViewer = {
-        id: 'role-viewer',
+      const roleInstaller = {
+        id: 'role-installer',
         entity: 'entity-1',
         venue: '',
-        managementPolicy: 'policy-viewer',
+        managementPolicy: 'policy-installer',
         users: ['user-1'],
-        name: 'Entity Viewer - user@example.com',
+        name: 'Entity Installer - user@example.com',
       };
       const roleAdmin = {
         id: 'role-admin',
@@ -679,7 +679,7 @@ describe('ManagementAccess helpers', () => {
         name: 'Entity Admin - user@example.com',
       };
 
-      const roles = rolesOrder === 'viewer-first' ? [roleViewer, roleAdmin] : [roleAdmin, roleViewer];
+      const roles = rolesOrder === 'installer-first' ? [roleInstaller, roleAdmin] : [roleAdmin, roleInstaller];
 
       setAxiosMocks({
         get: async (url: string) => {
@@ -693,13 +693,13 @@ describe('ManagementAccess helpers', () => {
           if (url === 'managementRole?entity=entity-1&venue=') {
             return { data: { managementRoles: [] } };
           }
-          if (url === 'managementPolicy/policy-viewer') {
+          if (url === 'managementPolicy/policy-installer') {
             return {
               data: {
-                id: 'policy-viewer',
+                id: 'policy-installer',
                 entity: 'entity-1',
                 venue: '',
-                name: 'Entity Viewer Full Access Policy',
+                name: 'Entity Installer Full Access Policy',
                 entries: [
                   {
                     users: ['user-1'],
@@ -762,15 +762,43 @@ describe('ManagementAccess helpers', () => {
 
       assert.equal(result.policyId, 'policy-admin');
       assert.equal(result.roleId, 'role-admin');
-      // Ensure only policy-admin was updated via PUT, not policy-viewer
-      const mutatedViewer = putCalls.some(([url]) => url.includes('policy-viewer'));
+      // Ensure only policy-admin was updated via PUT, not policy-installer
+      const mutatedInstaller = putCalls.some(([url]) => url.includes('policy-installer'));
       const mutatedAdmin = putCalls.some(([url]) => url.includes('policy-admin'));
-      assert.equal(mutatedViewer, false);
+      assert.equal(mutatedInstaller, false);
       assert.equal(mutatedAdmin, true);
     };
 
-    await runTestWithOrder('viewer-first');
+    await runTestWithOrder('installer-first');
     await runTestWithOrder('admin-first');
+  });
+
+  it('builds venue-scoped installer payloads with read/list access only', () => {
+    const policy = buildManagementPolicyPayload({
+      access: ['READ', 'LIST'],
+      entityId: 'entity-1',
+      resources: ['venue'],
+      roleTemplate: 'Installer',
+      scope: 'venue',
+      userId: 'user-1',
+      venueId: 'venue-1',
+    });
+    const role = buildManagementRolePayload({
+      entityId: 'entity-1',
+      policyId: 'policy-1',
+      roleTemplate: 'Installer',
+      scope: 'venue',
+      userEmail: 'user@example.com',
+      userId: 'user-1',
+      venueId: 'venue-1',
+    });
+
+    assert.deepEqual(policy.entries[0]?.resources, ['venue']);
+    assert.deepEqual(policy.entries[0]?.access, ['READ', 'LIST']);
+    assert.equal(policy.venue, 'venue-1');
+    assert.equal(role.venue, 'venue-1');
+    assert.equal(role.name, 'Venue Installer - user@example.com');
+    assert.equal(role.description, 'Read-only venue access');
   });
 
   it('regression: existing unrelated policy (shared policy) is not overwritten', async () => {

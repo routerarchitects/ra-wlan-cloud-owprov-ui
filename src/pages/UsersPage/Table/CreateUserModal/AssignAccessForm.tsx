@@ -61,7 +61,7 @@ type Props = {
 
 const roleTemplateOptions: { label: string; value: ManagementRoleTemplate }[] = [
   { label: 'Admin', value: 'Admin' },
-  { label: 'Viewer', value: 'Viewer' },
+  { label: 'Installer', value: 'Installer' },
   { label: 'Support', value: 'Support' },
   { label: 'Custom', value: 'Custom' },
 ];
@@ -138,7 +138,7 @@ const ValidationSchema = (t: (key: string) => string) =>
       then: (schema) => schema.required(t('form.required')),
       otherwise: (schema) => schema.notRequired(),
     }),
-    roleTemplate: Yup.string().oneOf(['Admin', 'Viewer', 'Support', 'Custom']).required(t('form.required')),
+    roleTemplate: Yup.string().oneOf(['Admin', 'Installer', 'Support', 'Custom']).required(t('form.required')),
   });
 
 const AccessPolicyFields = () => {

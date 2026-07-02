@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, AlertIcon, SimpleGrid } from '@chakra-ui/react';
+import { SimpleGrid } from '@chakra-ui/react';
 import { Formik, Form } from 'formik';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,6 @@ const propTypes = {
   operatorEntities: PropTypes.arrayOf(PropTypes.shape({})).isRequired,
   hasOperatorCreateScope: PropTypes.bool.isRequired,
   isOperatorEntitiesLoading: PropTypes.bool.isRequired,
-  isOperatorEntitiesError: PropTypes.bool.isRequired,
 };
 
 const CreateOperatorForm = ({
@@ -33,7 +32,6 @@ const CreateOperatorForm = ({
   operatorEntities,
   hasOperatorCreateScope,
   isOperatorEntitiesLoading,
-  isOperatorEntitiesError,
 }) => {
   const { t } = useTranslation();
   const [formKey, setFormKey] = useState(uuid());
@@ -102,29 +100,21 @@ const CreateOperatorForm = ({
       <Form>
         <SimpleGrid minChildWidth="300px" spacing="20px" mb={6}>
           {!isRootUser && (
-            <>
-              <SelectField
-                name="entityId"
-                label={t('operator.associate_entity')}
-                options={[
-                  { value: '', label: 'Select associated entity' },
-                  ...operatorEntities.map(({ entityId, entityName, operatorName }) => ({
-                    value: entityId,
-                    label: [operatorName, entityName ? `${entityName} (${entityId})` : entityId]
-                      .filter(Boolean)
-                      .join(' - '),
-                  })),
-                ]}
-                isRequired
-                isDisabled={isOperatorEntitiesLoading || !hasOperatorCreateScope}
-              />
-              {!isOperatorEntitiesLoading && !hasOperatorCreateScope && !isOperatorEntitiesError && (
-                <Alert status="warning" borderRadius="md">
-                  <AlertIcon />
-                  This account has no operator-create scope.
-                </Alert>
-              )}
-            </>
+            <SelectField
+              name="entityId"
+              label={t('operator.associate_entity')}
+              options={[
+                { value: '', label: 'Select associated entity' },
+                ...operatorEntities.map(({ entityId, entityName, operatorName }) => ({
+                  value: entityId,
+                  label: [operatorName, entityName ? `${entityName} (${entityId})` : entityId]
+                    .filter(Boolean)
+                    .join(' - '),
+                })),
+              ]}
+              isRequired
+              isDisabled={isOperatorEntitiesLoading || !hasOperatorCreateScope}
+            />
           )}
           <StringField name="name" label={t('common.name')} isRequired />
           <StringField name="description" label={t('common.description')} />
