@@ -273,7 +273,7 @@ const createUser = async (newUser: {
   const { emailValidation, entity, ...payload } = newUser;
   const searchParams = new URLSearchParams();
 
-  if (emailValidation) searchParams.set('email_verification', 'true');
+  searchParams.set('email_verification', emailValidation ? 'true' : 'false');
   if (entity) searchParams.set('entity', entity);
 
   const queryString = searchParams.toString();

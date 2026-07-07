@@ -25,6 +25,8 @@ const propTypes = {
   isHidden: PropTypes.bool,
   isPortal: PropTypes.bool.isRequired,
   definitionKey: PropTypes.string,
+  placeholder: PropTypes.string,
+  exclusiveValues: PropTypes.arrayOf(PropTypes.string),
 };
 
 const defaultProps = {
@@ -36,6 +38,8 @@ const defaultProps = {
   isDisabled: false,
   isHidden: false,
   definitionKey: null,
+  placeholder: null,
+  exclusiveValues: [],
 };
 
 const FastMultiSelectInput = ({
@@ -52,16 +56,31 @@ const FastMultiSelectInput = ({
   isHidden,
   isPortal,
   definitionKey,
+  placeholder,
+  exclusiveValues,
 }) => {
   const { t } = useTranslation();
 
+  const hasExclusiveSelected = (value ?? []).some((val) => exclusiveValues?.includes(val));
+  const mappedOptions = options.map((opt) => {
+    if (hasExclusiveSelected && !exclusiveValues?.includes(opt.value)) {
+      return { ...opt, isDisabled: true };
+    }
+    return opt;
+  });
+
+  const selectOptions = canSelectAll ? [{ value: '*', label: t('common.all') }, ...mappedOptions] : mappedOptions;
+
   return (
     <FormControl isInvalid={error && touched} isRequired={isRequired} hidden={isHidden}>
-      <FormLabel ms="4px" fontSize="md" fontWeight="normal" _disabled={{ opacity: 0.8 }}>
-        {label}
-        <ConfigurationFieldExplanation definitionKey={definitionKey} />
-      </FormLabel>
+      {label ? (
+        <FormLabel ms="4px" fontSize="md" fontWeight="normal" _disabled={{ opacity: 0.8 }}>
+          {label}
+          <ConfigurationFieldExplanation definitionKey={definitionKey} />
+        </FormLabel>
+      ) : null}
       <Select
+        placeholder={placeholder ?? undefined}
         chakraStyles={{
           control: (provided, { isDisabled: isControlDisabled }) => ({
             ...provided,
@@ -79,7 +98,7 @@ const FastMultiSelectInput = ({
         menuPortalTarget={isPortal ? document.body : undefined}
         isMulti
         closeMenuOnSelect={false}
-        options={canSelectAll ? [{ value: '*', label: t('common.all') }, ...options] : options}
+        options={selectOptions}
         value={
           value?.map((val) => {
             if (val === '*') return { value: val, label: t('common.all') };

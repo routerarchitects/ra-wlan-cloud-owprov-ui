@@ -194,7 +194,15 @@ export const useGetOperators = ({
   );
 };
 
-export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }) => {
+export const useGetOperator = ({
+  enabled = true,
+  id,
+  redirectOnError = false,
+}: {
+  enabled?: boolean;
+  id: string;
+  redirectOnError?: boolean;
+}) => {
   const { t } = useTranslation();
   const toast = useToast();
   const goToDefaultPage = useDefaultPage();
@@ -204,7 +212,7 @@ export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }
     {
       enabled,
       onError: (e: AxiosError) => {
-        if (!toast.isActive('opeator-fetching-error'))
+        if (!toast.isActive('operator-fetching-error'))
           toast({
             id: 'operator-fetching-error',
             title: t('common.error'),
@@ -217,7 +225,7 @@ export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }
             isClosable: true,
             position: 'top-right',
           });
-        goToDefaultPage();
+        if (redirectOnError) goToDefaultPage();
       },
     },
   );

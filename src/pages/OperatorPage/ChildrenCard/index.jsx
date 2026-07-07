@@ -16,7 +16,7 @@ const propTypes = {
 
 const OperatorChildrenCard = ({ id }) => {
   const { t } = useTranslation();
-  const { data: operator, isFetching } = useGetOperator({ id });
+  const { data: operator, isFetching } = useGetOperator({ id, redirectOnError: true });
 
   return (
     <Card>

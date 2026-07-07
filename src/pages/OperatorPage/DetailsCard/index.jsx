@@ -19,7 +19,7 @@ const propTypes = {
 
 const OperatorDetailsCard = ({ id }) => {
   const [editing, setEditing] = useBoolean();
-  const { data: operator, refetch, isFetching } = useGetOperator({ id });
+  const { data: operator, refetch, isFetching } = useGetOperator({ id, redirectOnError: true });
   const { form, formRef } = useFormRef();
 
   return (

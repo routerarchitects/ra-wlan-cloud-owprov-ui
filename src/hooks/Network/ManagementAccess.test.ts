@@ -1,11 +1,13 @@
 import './setup-test';
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
+import { isAssignAccessDisabled, AssignAccessFormValues } from '../../pages/UsersPage/Table/CreateUserModal/AssignAccessForm';
 import {
   assignUserAccess,
   buildManagementPolicyPayload,
   buildManagementRolePayload,
   getExistingManagementPolicyForUser,
+  getManagementRolesForUser,
   getMatchingManagementPolicy,
   getMatchingManagementRole,
   mergePolicyEntries,
@@ -54,8 +56,6 @@ describe('ManagementAccess helpers', () => {
     });
 
     assert.deepEqual(policy, {
-      name: 'Operator Admin Full Access Policy',
-      description: 'Full access policy for Operator admin inside operator entity scope',
       entries: [
         {
           users: ['user-1'],
@@ -72,6 +72,8 @@ describe('ManagementAccess helpers', () => {
       entity: 'entity-1',
       venue: '',
     });
+    assert.equal(policy.name, undefined);
+    assert.equal(policy.description, undefined);
     assert.deepEqual(role, {
       name: 'Entity Admin - user@example.com',
       description: 'Full entity access',
@@ -1766,5 +1768,204 @@ describe('ManagementAccess helpers', () => {
       (err: Error) =>
         err.message.includes('Cross-entity venue assignment is rejected')
     );
+  });
+
+  describe('isAssignAccessDisabled helper', () => {
+    const initialValues: AssignAccessFormValues = {
+      scope: 'entity',
+      entityId: 'entity-1',
+      venueId: '',
+      roleTemplate: 'Admin',
+      policyName: '',
+      policyDescription: '',
+      userEmail: 'user@example.com',
+      userId: 'user-1',
+      resourcePermissions: [],
+    };
+
+    it('is disabled by default when no changes are made', () => {
+      const disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues: initialValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, true);
+    });
+
+    it('is enabled when a resource is changed', () => {
+      const currentValues: AssignAccessFormValues = {
+        ...initialValues,
+        resourcePermissions: [{ resource: 'entity', access: ['FULL'] }],
+      };
+      const disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, false);
+    });
+
+    it('is disabled again after changes are reverted', () => {
+      const currentValues: AssignAccessFormValues = {
+        ...initialValues,
+        resourcePermissions: [],
+      };
+      const disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, true);
+    });
+
+    it('is disabled when isSubmitting is true or isValid is false', () => {
+      const currentValues: AssignAccessFormValues = {
+        ...initialValues,
+        resourcePermissions: [{ resource: 'entity', access: ['FULL'] }],
+      };
+      const disabledSubmitting = isAssignAccessDisabled({
+        initialValues,
+        currentValues,
+        isValid: true,
+        isSubmitting: true,
+      });
+      const disabledInvalid = isAssignAccessDisabled({
+        initialValues,
+        currentValues,
+        isValid: false,
+        isSubmitting: false,
+      });
+      assert.equal(disabledSubmitting, true);
+      assert.equal(disabledInvalid, true);
+    });
+  });
+
+  it('submits successfully with zero resources (empty resourcePermissions)', async () => {
+    const postCalls: Array<[string, unknown]> = [];
+
+    setAxiosMocks({
+      get: async (url: string) => {
+        if (url === 'managementRole?userId=user-1&entityId=entity-1') {
+          return { data: { managementRoles: [] } };
+        }
+        if (url === 'managementRole?entity=entity-1&venue=') {
+          return { data: { managementRoles: [] } };
+        }
+        throw new Error(`Unexpected GET ${url}`);
+      },
+      post: async (url: string, payload: unknown) => {
+        postCalls.push([url, payload]);
+        if (url === 'managementPolicy/create') return { data: { id: 'policy-empty' } };
+        if (url === 'managementRole/create') return { data: { id: 'role-empty' } };
+        throw new Error(`Unexpected POST ${url}`);
+      },
+    });
+
+    const result = await assignUserAccess({
+      access: [],
+      resources: [],
+      resourcePermissions: [],
+      entityId: 'entity-1',
+      roleTemplate: 'Admin',
+      scope: 'entity',
+      userEmail: 'user@example.com',
+      userId: 'user-1',
+    });
+
+    assert.equal(result.policyId, 'policy-empty');
+    assert.equal(result.roleId, 'role-empty');
+    assert.equal(postCalls.length, 2);
+    assert.equal(postCalls[0]?.[0], 'managementPolicy/create');
+    
+    const policyPayload = postCalls[0]?.[1] as { entries: Array<{ resources: string[]; access: string[] }> };
+    assert.deepEqual(policyPayload.entries, []);
+  });
+
+  describe('Access Policy Discoverability flow', () => {
+    it('fetches all management roles for a user', async () => {
+      const getCalls: string[] = [];
+
+      setAxiosMocks({
+        get: async (url: string) => {
+          getCalls.push(url);
+          if (url === 'managementRole?userId=user-1') {
+            return {
+              data: {
+                managementRoles: [
+                  {
+                    id: 'role-1',
+                    entity: 'entity-1',
+                    venue: '',
+                    managementPolicy: 'policy-1',
+                    users: ['user-1'],
+                    name: 'Entity Admin',
+                  },
+                ],
+              },
+            };
+          }
+          throw new Error(`Unexpected GET ${url}`);
+        },
+      });
+
+      const roles = await getManagementRolesForUser({ userId: 'user-1' });
+
+      assert.equal(getCalls.length, 1);
+      assert.equal(getCalls[0], 'managementRole?userId=user-1');
+      assert.equal(roles.length, 1);
+      assert.equal(roles[0]?.id, 'role-1');
+    });
+
+    it('determines if the assign access button should be disabled under various scenarios', () => {
+      const initialValues: AssignAccessFormValues = {
+        scope: 'entity',
+        entityId: 'entity-1',
+        venueId: '',
+        roleTemplate: 'Admin',
+        policyName: '',
+        policyDescription: '',
+        userEmail: 'user@example.com',
+        userId: 'user-1',
+        resourcePermissions: [],
+      };
+
+      // Scenario: initial button disabled state (no policy / no changes)
+      let disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues: initialValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, true);
+
+      // Scenario: button enabled after resource change
+      const changedValues: AssignAccessFormValues = {
+        ...initialValues,
+        resourcePermissions: [{ resource: 'entity', access: ['FULL'] }],
+      };
+      disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues: changedValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, false);
+
+      // Scenario: button disabled again after reverting changes
+      const revertedValues: AssignAccessFormValues = {
+        ...initialValues,
+        resourcePermissions: [],
+      };
+      disabled = isAssignAccessDisabled({
+        initialValues,
+        currentValues: revertedValues,
+        isValid: true,
+        isSubmitting: false,
+      });
+      assert.equal(disabled, true);
+    });
   });
 });

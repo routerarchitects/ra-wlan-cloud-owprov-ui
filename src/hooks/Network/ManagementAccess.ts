@@ -54,7 +54,7 @@ export type ManagementPolicyRequest = {
   description?: string;
   entries: ManagementPolicyEntry[];
   entity: string;
-  name: string;
+  name?: string;
   venue?: string;
 };
 
@@ -77,6 +77,8 @@ export type AssignUserAccessInput = {
   userId: string;
   venueId?: string;
   resourcePermissions?: ManagementResourceAccess[];
+  policyName?: string;
+  policyDescription?: string;
   currentUserRole?: string;
   currentUserSecurityPolicy?: string;
   currentUserId?: string;
@@ -257,7 +259,7 @@ const buildManagementPolicyEntries = ({
 }) => {
   const context = buildManagementPolicyContext({ entityId, scope });
 
-  if (resourcePermissions !== undefined && resourcePermissions.length > 0) {
+  if (resourcePermissions !== undefined) {
     return resourcePermissions
       .filter(({ resource }) => resource !== '')
       .map(({ resource, access: resourceAccess }) => ({
@@ -281,6 +283,7 @@ const buildManagementPolicyEntries = ({
 export const getTemplateAccess = (scope: ManagementScope, roleTemplate: ManagementRoleTemplate) =>
   buildTemplateContext(scope, roleTemplate).access;
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 export const buildManagementPolicyPayload = ({
   access,
   entityId,
@@ -290,6 +293,8 @@ export const buildManagementPolicyPayload = ({
   scope,
   userId,
   venueId,
+  policyName,
+  policyDescription,
 }: {
   access: ManagementAccessPermission[];
   entityId: string;
@@ -299,32 +304,23 @@ export const buildManagementPolicyPayload = ({
   scope: ManagementScope;
   userId: string;
   venueId?: string;
-}): ManagementPolicyRequest => {
-  const template = buildTemplateContext(scope, roleTemplate);
-  const policyName =
-    scope === 'entity' && roleTemplate === 'Admin'
-      ? 'Operator Admin Full Access Policy'
-      : `${template.namePrefix} Full Access Policy`;
-  const policyDescription =
-    scope === 'entity' && roleTemplate === 'Admin'
-      ? 'Full access policy for Operator admin inside operator entity scope'
-      : `Full access policy for ${roleTemplate.toLowerCase()} inside ${scope} scope`;
-
-  return {
-    name: policyName,
-    description: policyDescription,
-    entries: buildManagementPolicyEntries({
-      access,
-      entityId,
-      resources,
-      resourcePermissions,
-      scope,
-      userId,
-    }),
-    entity: entityId,
-    venue: venueId ?? '',
-  };
-};
+  policyName?: string;
+  policyDescription?: string;
+}): ManagementPolicyRequest => ({
+  entries: buildManagementPolicyEntries({
+    access,
+    entityId,
+    resources,
+    resourcePermissions,
+    scope,
+    userId,
+  }),
+  entity: entityId,
+  venue: venueId ?? '',
+  ...(policyName ? { name: policyName } : {}),
+  ...(policyDescription ? { description: policyDescription } : {}),
+});
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export const buildManagementRolePayload = ({
   entityId,
@@ -515,6 +511,41 @@ export const useGetManagementPolicyForUserEntity = ({
       },
     },
   );
+};
+
+export const getManagementRolesForUser = async ({ userId }: { userId: string }) => {
+  const response = await axiosProv.get(`managementRole?userId=${encodeURIComponent(userId)}`);
+
+  return getCollection<ManagementRoleApiResponse>(response.data as ManagementRoleQueryResponse, [
+    'managementRoles',
+    'roles',
+    'entries',
+    'managementRole',
+  ]);
+};
+
+export const useGetManagementRolesForUser = ({ enabled, userId }: { enabled: boolean; userId: string }) => {
+  const { t } = useTranslation();
+  const toast = useToast();
+
+  return useQuery(['get-management-roles-for-user', userId], () => getManagementRolesForUser({ userId }), {
+    enabled,
+    onError: (e: AxiosError) => {
+      if (!toast.isActive('management-roles-for-user-fetching-error'))
+        toast({
+          id: 'management-roles-for-user-fetching-error',
+          title: t('common.error'),
+          description: t('crud.error_fetching_obj', {
+            obj: t('common.roles'),
+            e: e?.response?.data?.ErrorDescription,
+          }),
+          status: 'error',
+          duration: 5000,
+          isClosable: true,
+          position: 'top-right',
+        });
+    },
+  });
 };
 
 export const useCreateManagementPolicy = () => {
@@ -782,6 +813,8 @@ export const assignUserAccess = async ({
   userEmail,
   userId,
   venueId,
+  policyName,
+  policyDescription,
   currentUserRole,
   currentUserId,
 }: AssignUserAccessInput): Promise<ManagementAccessResult> => {
@@ -984,6 +1017,8 @@ export const assignUserAccess = async ({
     scope,
     userId,
     venueId: policyVenueId || undefined,
+    policyName,
+    policyDescription,
   });
 
   let policyId = existingPolicy?.id ?? existingPolicyId ?? '';

@@ -20,6 +20,8 @@ const propTypes = {
   canSelectAll: PropTypes.bool,
   isPortal: PropTypes.bool,
   definitionKey: PropTypes.string,
+  placeholder: PropTypes.string,
+  exclusiveValues: PropTypes.arrayOf(PropTypes.string),
 };
 
 const defaultProps = {
@@ -31,6 +33,8 @@ const defaultProps = {
   canSelectAll: false,
   isPortal: false,
   definitionKey: null,
+  placeholder: null,
+  exclusiveValues: [],
 };
 
 const MultiSelectField = ({
@@ -45,6 +49,8 @@ const MultiSelectField = ({
   hasVirtualAll,
   isPortal,
   definitionKey,
+  placeholder,
+  exclusiveValues,
 }) => {
   const [{ value }, { touched, error }, { setValue, setTouched }] = useField(name);
 
@@ -52,7 +58,24 @@ const MultiSelectField = ({
     const allIndex = option.findIndex((opt) => opt.value === '*');
     if (option.length === 0 && emptyIsUndefined) {
       setValue(undefined);
-    } else if (allIndex === 0 && option.length > 1) {
+      setTouched(true);
+      return;
+    }
+
+    if (exclusiveValues && exclusiveValues.length > 0) {
+      const selectedValues = option.map((val) => val.value);
+      const hasExclusive = selectedValues.some((v) => exclusiveValues.includes(v));
+      const prevHasExclusive = (value ?? []).some((v) => exclusiveValues.includes(v));
+
+      if (hasExclusive && !prevHasExclusive) {
+        const exclusiveSelected = selectedValues.find((v) => exclusiveValues.includes(v));
+        setValue([exclusiveSelected]);
+        setTouched(true);
+        return;
+      }
+    }
+
+    if (allIndex === 0 && option.length > 1) {
       const newValues = option.slice(1);
       setValue(newValues.map((val) => val.value));
     } else if (allIndex >= 0) {
@@ -61,7 +84,7 @@ const MultiSelectField = ({
     } else if (option.length > 0) setValue(option.map((val) => val.value));
     else setValue([]);
     setTouched(true);
-  }, []);
+  }, [value, exclusiveValues, emptyIsUndefined, hasVirtualAll, options, setValue, setTouched]);
 
   const onFieldBlur = useCallback(() => {
     setTouched(true);
@@ -82,6 +105,8 @@ const MultiSelectField = ({
       isHidden={isHidden}
       isPortal={isPortal}
       definitionKey={definitionKey}
+      placeholder={placeholder}
+      exclusiveValues={exclusiveValues}
     />
   );
 };

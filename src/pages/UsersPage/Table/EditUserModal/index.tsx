@@ -32,8 +32,8 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
   const { data: user, isFetching, refetch } = useGetUser({ id: userId ?? '', enabled: canFetchUser });
   const canManageAccess = authUser?.userRole === 'root' || authUser?.userRole === 'admin';
   const ownerOperatorId = user?.owner?.startsWith('operator:') ? user.owner.split(':')[1] : '';
-  const { data: ownerOperator, isFetching: isFetchingOwnerOperator } = useGetOperator({
-    enabled: canManageAccess && ownerOperatorId.length > 0,
+  const { data: ownerOperator, isLoading: isLoadingOwnerOperator } = useGetOperator({
+    enabled: canManageAccess && ownerOperatorId.length > 0 && activeTab === 2,
     id: ownerOperatorId,
   });
   const initialAccessEntityId = ownerOperatorId.length > 0 ? ownerOperator?.entityId : user?.owner;
@@ -97,7 +97,7 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
           </>
         }
       >
-        {!isFetching && !isFetchingOwnerOperator && user ? (
+        {!isFetching && user ? (
           <UpdateUserForm
             editing={editing}
             canManageAccess={canManageAccess}
@@ -105,6 +105,7 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
             setActiveTab={setActiveTab}
             selectedUser={user}
             initialAccessEntityId={initialAccessEntityId}
+            isLoadingOwnerOperator={isLoadingOwnerOperator}
             isOpen={isOpen}
             onClose={onClose}
             formRef={formRef}

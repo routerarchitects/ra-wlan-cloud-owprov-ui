@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ExternalLinkIcon } from '@chakra-ui/icons';
-import { Box, Flex, Link, useToast, Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid } from '@chakra-ui/react';
+import { Box, Flex, Link, useToast, Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid, Center, Spinner } from '@chakra-ui/react';
 import axios from 'axios';
 import { Formik, Form, FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
@@ -24,6 +24,7 @@ type Props = {
   onClose: () => void;
   selectedUser: User;
   initialAccessEntityId?: string;
+  isLoadingOwnerOperator?: boolean;
   formRef: React.Ref<FormikProps<User>>;
 };
 
@@ -36,6 +37,7 @@ const UpdateUserForm = ({
   onClose,
   selectedUser,
   initialAccessEntityId,
+  isLoadingOwnerOperator,
   formRef,
 }: Props) => {
   const { t } = useTranslation();
@@ -153,7 +155,7 @@ const UpdateUserForm = ({
       }
     >
       <>
-        <Tabs variant="enclosed" index={activeTab} onChange={setActiveTab}>
+        <Tabs isLazy variant="enclosed" index={activeTab} onChange={setActiveTab}>
           <TabList>
             <Tab>{t('common.main')}</Tab>
             <Tab>{t('common.notes')}</Tab>
@@ -195,16 +197,22 @@ const UpdateUserForm = ({
             </TabPanel>
             {canManageAccess ? (
               <TabPanel>
-                <AssignAccessForm
-                  onBack={() => setActiveTab(0)}
-                  onComplete={handleAccessAssignmentComplete}
-                  initialEntityId={initialAccessEntityId}
-                  user={{
-                    email: selectedUser.email,
-                    userId: selectedUser.id,
-                  }}
-                  context={accessPolicyContext}
-                />
+                {isLoadingOwnerOperator ? (
+                  <Center py={8}>
+                    <Spinner size="lg" />
+                  </Center>
+                ) : (
+                  <AssignAccessForm
+                    onBack={() => setActiveTab(0)}
+                    onComplete={handleAccessAssignmentComplete}
+                    initialEntityId={initialAccessEntityId}
+                    user={{
+                      email: selectedUser.email,
+                      userId: selectedUser.id,
+                    }}
+                    context={accessPolicyContext}
+                  />
+                )}
               </TabPanel>
             ) : null}
           </TabPanels>
