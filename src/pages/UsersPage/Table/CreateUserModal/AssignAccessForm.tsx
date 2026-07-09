@@ -10,11 +10,30 @@ import {
   Divider,
   Flex,
   Heading,
+  HStack,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Popover,
+  PopoverAnchor,
+  PopoverArrow,
+  PopoverBody,
+  PopoverCloseButton,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
   SimpleGrid,
   Spinner,
   Stack,
   Text,
+  useDisclosure,
+  useToast,
 } from '@chakra-ui/react';
+import { Eye, PencilSimple, Trash } from '@phosphor-icons/react';
 import { FieldArray, Form, Formik, useFormikContext } from 'formik';
 import { useTranslation } from 'react-i18next';
 import * as Yup from 'yup';
@@ -33,6 +52,8 @@ import {
   ManagementRoleApiResponse,
   getTemplateAccess,
   useAssignUserAccess,
+  useDeleteManagementPolicy,
+  useGetManagementPolicy,
   useGetManagementPolicyForUserEntity,
   useGetManagementRolesForUser,
 } from 'hooks/Network/ManagementAccess';
@@ -95,6 +116,9 @@ const resourceOptions = [
 const privilegedResourceValues = ['managementPolicy', 'managementRole'];
 
 const canManagePrivilegedResources = (role?: string) => role === 'root' || role === 'admin';
+
+const getManagementPolicyIdFromRole = (role?: ManagementRoleApiResponse | null) =>
+  role?.managementPolicyId ?? role?.managementPolicy ?? '';
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
 const getInitialAccess = (scope: ManagementScope, roleTemplate: ManagementRoleTemplate) =>
@@ -177,6 +201,7 @@ export const isAssignAccessDisabled = ({
 const AccessPolicyFields = ({
   onPolicyLoaded,
   isEditMode,
+  selectedPolicyId,
 }: {
   onPolicyLoaded: (
     permissions: ManagementResourceAccess[],
@@ -184,6 +209,7 @@ const AccessPolicyFields = ({
     context: { entityId: string; venueId: string; scope: ManagementScope }
   ) => void;
   isEditMode: boolean;
+  selectedPolicyId?: string;
 }) => {
   const { values, setFieldValue } = useFormikContext<AssignAccessFormValues>();
   const { user: authUser } = useAuth();
@@ -260,6 +286,7 @@ const AccessPolicyFields = ({
 
   const policyQuery = useGetManagementPolicyForUserEntity({
     enabled:
+      !selectedPolicyId &&
       Boolean(values.entityId) &&
       !values.entityId.startsWith('operator:') &&
       Boolean(values.userId) &&
@@ -268,7 +295,13 @@ const AccessPolicyFields = ({
     userId: values.userId,
     venueId: values.scope === 'venue' ? values.venueId : undefined,
   });
-  const existingPolicy = policyQuery.data?.policy;
+  const selectedPolicyQuery = useGetManagementPolicy({
+    enabled: Boolean(selectedPolicyId),
+    policyId: selectedPolicyId ?? '',
+  });
+  const existingPolicy = selectedPolicyId ? selectedPolicyQuery.data : policyQuery.data?.policy;
+  const isPolicyLookupSuccess = selectedPolicyId ? selectedPolicyQuery.isSuccess : policyQuery.isSuccess;
+  const isPolicyLookupFetching = selectedPolicyId ? selectedPolicyQuery.isFetching : policyQuery.isFetching;
 
   useEffect(() => {
     if (!values.entityId) {
@@ -276,7 +309,7 @@ const AccessPolicyFields = ({
       return;
     }
 
-    if (policyQuery.isSuccess && !policyQuery.isFetching) {
+    if (isPolicyLookupSuccess && !isPolicyLookupFetching) {
       const loadedPermissions = existingPolicy ? getResourcePermissionsFromPolicy(existingPolicy) : [];
       onPolicyLoaded(
         loadedPermissions,
@@ -291,7 +324,15 @@ const AccessPolicyFields = ({
         }
       );
     }
-  }, [existingPolicy?.id, policyQuery.isSuccess, policyQuery.isFetching, values.entityId, values.venueId, values.scope, onPolicyLoaded]);
+  }, [
+    existingPolicy?.id,
+    isPolicyLookupSuccess,
+    isPolicyLookupFetching,
+    values.entityId,
+    values.venueId,
+    values.scope,
+    onPolicyLoaded,
+  ]);
 
   useEffect(() => {
     if (values.scope === 'entity' && values.venueId) {
@@ -467,6 +508,175 @@ const getInitialValues = ({
   resourcePermissions: getInitialResourcePermissions('entity', 'Admin'),
 });
 
+const AccessPolicyViewModal = ({
+  isLoading,
+  isOpen,
+  onClose,
+  policy,
+}: {
+  isLoading: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  policy?: ManagementPolicyApiResponse;
+}) => (
+  <Modal isOpen={isOpen} onClose={onClose} size="xl">
+    <ModalOverlay />
+    <ModalContent>
+      <ModalHeader>View Access Policy</ModalHeader>
+      <ModalCloseButton />
+      <ModalBody>
+        {isLoading ? (
+          <Center py={8}>
+            <Spinner />
+          </Center>
+        ) : (
+          <Stack spacing={4}>
+            <Box>
+              <Text fontWeight="semibold">{policy?.name ?? 'Policy not found'}</Text>
+              {policy?.description ? (
+                <Text fontSize="sm" color="gray.500">
+                  {policy.description}
+                </Text>
+              ) : null}
+            </Box>
+            <SimpleGrid minChildWidth="220px" spacing="12px">
+              <Box>
+                <Text fontSize="xs" color="gray.500">
+                  Policy ID
+                </Text>
+                <Text fontSize="sm">{policy?.id ?? '-'}</Text>
+              </Box>
+              <Box>
+                <Text fontSize="xs" color="gray.500">
+                  Entity
+                </Text>
+                <Text fontSize="sm">{policy?.entity ?? '-'}</Text>
+              </Box>
+              <Box>
+                <Text fontSize="xs" color="gray.500">
+                  Venue
+                </Text>
+                <Text fontSize="sm">{policy?.venue || 'Entity scope'}</Text>
+              </Box>
+            </SimpleGrid>
+            <Box borderWidth="1px" borderRadius="md" p={4}>
+              <Text fontWeight="semibold" mb={3}>
+                Resource Permissions
+              </Text>
+              <Stack spacing={3}>
+                {(policy?.entries ?? []).length > 0 ? (
+                  policy?.entries?.map((entry, index) => (
+                    <Box
+                      /* eslint-disable-next-line react/no-array-index-key */
+                      key={`${entry.resources.join(',')}-${index}`}
+                      borderWidth="1px"
+                      borderRadius="md"
+                      p={3}
+                    >
+                      <Text fontSize="sm" fontWeight="semibold">
+                        {entry.resources.join(', ') || '-'}
+                      </Text>
+                      <Text fontSize="sm" color="gray.500">
+                        {entry.access.join(', ') || 'NOACCESS'}
+                      </Text>
+                    </Box>
+                  ))
+                ) : (
+                  <Text fontSize="sm" color="gray.500">
+                    No resource permissions found.
+                  </Text>
+                )}
+              </Stack>
+            </Box>
+          </Stack>
+        )}
+      </ModalBody>
+      <ModalFooter>
+        <Button onClick={onClose}>Close</Button>
+      </ModalFooter>
+    </ModalContent>
+  </Modal>
+);
+
+const AccessPolicyDeletePopover = ({
+  onDeleted,
+  role,
+}: {
+  onDeleted: () => Promise<unknown>;
+  role: ManagementRoleApiResponse;
+}) => {
+  const toast = useToast();
+  const deletePolicyMutation = useDeleteManagementPolicy();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const policyId = getManagementPolicyIdFromRole(role);
+
+  const handleDelete = () =>
+    deletePolicyMutation.mutate(
+      { policyId },
+      {
+        onSuccess: async () => {
+          await onDeleted();
+          onClose();
+          toast({
+            id: `management-policy-delete-${policyId}`,
+            title: 'Policy deleted',
+            description: `${role.name} was deleted.`,
+            status: 'success',
+            duration: 5000,
+            isClosable: true,
+            position: 'top-right',
+          });
+        },
+        onError: (error) => {
+          toast({
+            id: `management-policy-delete-error-${policyId}`,
+            title: 'Unable to delete policy',
+            description: error instanceof Error ? error.message : 'Delete request failed.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+            position: 'top-right',
+          });
+        },
+      },
+    );
+
+  return (
+    <Popover isOpen={isOpen} onOpen={onOpen} onClose={onClose}>
+      <PopoverAnchor>
+        <span>
+          <Button
+            size="sm"
+            colorScheme="red"
+            variant="outline"
+            leftIcon={<Trash size={16} />}
+            onClick={onOpen}
+            isDisabled={!policyId}
+          >
+            Delete
+          </Button>
+        </span>
+      </PopoverAnchor>
+      <PopoverContent>
+        <PopoverArrow />
+        <PopoverCloseButton />
+        <PopoverHeader>Delete access policy</PopoverHeader>
+        <PopoverBody>Are you sure you want to delete {role.name}?</PopoverBody>
+        <PopoverFooter>
+          <Center>
+            <Button colorScheme="gray" mr="1" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button colorScheme="red" ml="1" onClick={handleDelete} isLoading={deletePolicyMutation.isLoading}>
+              Delete
+            </Button>
+          </Center>
+        </PopoverFooter>
+      </PopoverContent>
+    </Popover>
+  );
+};
+
 const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }: Props) => {
   const { t } = useTranslation();
   const assignAccessMutation = useAssignUserAccess();
@@ -478,6 +688,13 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
 
   const [activeAssignmentMode, setActiveAssignmentMode] = useState<'view' | 'edit' | 'create'>('view');
   const [selectedExistingRole, setSelectedExistingRole] = useState<ManagementRoleApiResponse | null>(null);
+  const [selectedViewRole, setSelectedViewRole] = useState<ManagementRoleApiResponse | null>(null);
+  const { isOpen: isPolicyViewOpen, onOpen: openPolicyView, onClose: closePolicyView } = useDisclosure();
+  const selectedViewPolicyId = getManagementPolicyIdFromRole(selectedViewRole);
+  const selectedViewPolicyQuery = useGetManagementPolicy({
+    enabled: isPolicyViewOpen && Boolean(selectedViewPolicyId),
+    policyId: selectedViewPolicyId,
+  });
 
   const [formInitialValues, setFormInitialValues] = useState<AssignAccessFormValues>(() =>
     getInitialValues({ initialEntityId, user }),
@@ -529,6 +746,19 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
     setActiveAssignmentMode('edit');
   }, [user]);
 
+  const handleViewRole = useCallback(
+    (role: ManagementRoleApiResponse) => {
+      setSelectedViewRole(role);
+      openPolicyView();
+    },
+    [openPolicyView],
+  );
+
+  const handleClosePolicyView = useCallback(() => {
+    closePolicyView();
+    setSelectedViewRole(null);
+  }, [closePolicyView]);
+
   const handleCreateNew = useCallback(() => {
     setSelectedExistingRole(null);
     const newInitialValues = getInitialValues({ initialEntityId, user });
@@ -554,60 +784,90 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
 
   if (activeAssignmentMode === 'view') {
     return (
-      <Stack spacing={4}>
-        <Alert status="info" borderRadius="md">
-          <AlertIcon />
-          <Box>
-            <AlertTitle>{context.heading}</AlertTitle>
-            <AlertDescription>{context.description.replace('{{email}}', user.email)}</AlertDescription>
+      <>
+        <Stack spacing={4}>
+          <Alert status="info" borderRadius="md">
+            <AlertIcon />
+            <Box>
+              <AlertTitle>{context.heading}</AlertTitle>
+              <AlertDescription>{context.description.replace('{{email}}', user.email)}</AlertDescription>
+            </Box>
+          </Alert>
+
+          <Box borderWidth="1px" borderRadius="md" p={4}>
+            <Heading size="md" mb={4}>
+              Existing Access Policies
+            </Heading>
+            <Stack spacing={3}>
+              {rolesQuery.data?.map((role) => {
+                const entityName = entities?.find((e) => e.id === role.entity)?.name ?? role.entity;
+                const venueName = role.venue ? (venues?.find((v) => v.id === role.venue)?.name ?? role.venue) : '';
+                const policyId = getManagementPolicyIdFromRole(role);
+                return (
+                  <Flex
+                    key={role.id}
+                    justifyContent="space-between"
+                    alignItems={{ base: 'stretch', md: 'center' }}
+                    gap={3}
+                    p={3}
+                    borderWidth="1px"
+                    borderRadius="md"
+                    bg="gray.50"
+                    direction={{ base: 'column', md: 'row' }}
+                    _dark={{ bg: 'gray.700' }}
+                  >
+                    <Box>
+                      <Text fontWeight="semibold">
+                        {role.venue ? `Venue: ${venueName}` : `Entity: ${entityName}`}
+                      </Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {role.venue ? `Entity: ${entityName}` : 'Entity Scope'} | Policy: {role.name}
+                      </Text>
+                    </Box>
+                    <HStack spacing={2} justifyContent={{ base: 'flex-start', md: 'flex-end' }} flexWrap="wrap">
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        variant="outline"
+                        leftIcon={<Eye size={16} />}
+                        onClick={() => handleViewRole(role)}
+                        isDisabled={!policyId}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        colorScheme="blue"
+                        leftIcon={<PencilSimple size={16} />}
+                        onClick={() => handleEditRole(role)}
+                        isDisabled={!policyId}
+                      >
+                        Edit
+                      </Button>
+                      <AccessPolicyDeletePopover role={role} onDeleted={rolesQuery.refetch} />
+                    </HStack>
+                  </Flex>
+                );
+              })}
+            </Stack>
           </Box>
-        </Alert>
 
-        <Box borderWidth="1px" borderRadius="md" p={4}>
-          <Heading size="md" mb={4}>
-            Existing Access Policies
-          </Heading>
-          <Stack spacing={3}>
-            {rolesQuery.data?.map((role) => {
-              const entityName = entities?.find((e) => e.id === role.entity)?.name ?? role.entity;
-              const venueName = role.venue ? (venues?.find((v) => v.id === role.venue)?.name ?? role.venue) : '';
-              return (
-                <Flex
-                  key={role.id}
-                  justifyContent="space-between"
-                  alignItems="center"
-                  p={3}
-                  borderWidth="1px"
-                  borderRadius="md"
-                  bg="gray.50"
-                  _dark={{ bg: 'gray.700' }}
-                >
-                  <Box>
-                    <Text fontWeight="semibold">
-                      {role.venue ? `Venue: ${venueName}` : `Entity: ${entityName}`}
-                    </Text>
-                    <Text fontSize="xs" color="gray.500">
-                      {role.venue ? `Entity: ${entityName}` : 'Entity Scope'} | Policy: {role.name}
-                    </Text>
-                  </Box>
-                  <Button size="sm" colorScheme="blue" onClick={() => handleEditRole(role)}>
-                    Edit Permissions
-                  </Button>
-                </Flex>
-              );
-            })}
-          </Stack>
-        </Box>
-
-        <Flex justifyContent="space-between" mt={4}>
-          <Button variant="outline" onClick={onBack}>
-            {context.backLabel}
-          </Button>
-          <Button colorScheme="blue" onClick={handleCreateNew}>
-            Add Policy Assignment
-          </Button>
-        </Flex>
-      </Stack>
+          <Flex justifyContent="space-between" mt={4}>
+            <Button variant="outline" onClick={onBack}>
+              {context.backLabel}
+            </Button>
+            <Button colorScheme="blue" onClick={handleCreateNew}>
+              Add Policy Assignment
+            </Button>
+          </Flex>
+        </Stack>
+        <AccessPolicyViewModal
+          isOpen={isPolicyViewOpen}
+          onClose={handleClosePolicyView}
+          policy={selectedViewPolicyQuery.data}
+          isLoading={selectedViewPolicyQuery.isLoading || selectedViewPolicyQuery.isFetching}
+        />
+      </>
     );
   }
 
@@ -674,6 +934,7 @@ const AssignAccessForm = ({ onBack, onComplete, initialEntityId, user, context }
             <AccessPolicyFields
               onPolicyLoaded={handlePolicyLoaded}
               isEditMode={activeAssignmentMode === 'edit'}
+              selectedPolicyId={getManagementPolicyIdFromRole(selectedExistingRole)}
             />
 
             <Divider />

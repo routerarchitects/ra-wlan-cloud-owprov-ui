@@ -1,15 +1,20 @@
 import './setup-test';
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { isAssignAccessDisabled, AssignAccessFormValues } from '../../pages/UsersPage/Table/CreateUserModal/AssignAccessForm';
+import {
+  isAssignAccessDisabled,
+  AssignAccessFormValues,
+} from '../../pages/UsersPage/Table/CreateUserModal/AssignAccessForm';
 import {
   assignUserAccess,
   buildManagementPolicyPayload,
   buildManagementRolePayload,
+  deleteManagementPolicy,
   getExistingManagementPolicyForUser,
   getManagementRolesForUser,
   getMatchingManagementPolicy,
   getMatchingManagementRole,
+  ManagementPolicyEntry,
   mergePolicyEntries,
 } from './ManagementAccess';
 import { axiosProv } from 'utils/axiosInstances';
@@ -19,14 +24,27 @@ type MockFn = (...args: unknown[]) => Promise<unknown> | unknown;
 const originalGet = axiosProv.get;
 const originalPost = axiosProv.post;
 const originalPut = axiosProv.put;
+const originalDelete = axiosProv.delete;
 
 const restoreAxios = () => {
   axiosProv.get = originalGet;
   axiosProv.post = originalPost;
   axiosProv.put = originalPut;
+  axiosProv.delete = originalDelete;
 };
 
-const setAxiosMocks = ({ get, post, put }: { get?: MockFn; post?: MockFn; put?: MockFn }) => {
+const setAxiosMocks = ({
+  delete: deleteMock,
+  get,
+  post,
+  put,
+}: {
+  delete?: MockFn;
+  get?: MockFn;
+  post?: MockFn;
+  put?: MockFn;
+}) => {
+  axiosProv.delete = (deleteMock ?? originalDelete) as typeof axiosProv.delete;
   axiosProv.get = (get ?? originalGet) as typeof axiosProv.get;
   axiosProv.post = (post ?? originalPost) as typeof axiosProv.post;
   axiosProv.put = (put ?? originalPut) as typeof axiosProv.put;
@@ -270,7 +288,10 @@ describe('ManagementAccess helpers', () => {
 
     assert.equal(result.policyId, 'policy-1');
     assert.equal(result.roleId, 'role-1');
-    assert.deepEqual(postCalls.map(([url]) => url), ['managementPolicy/create', 'managementRole/create']);
+    assert.deepEqual(
+      postCalls.map(([url]) => url),
+      ['managementPolicy/create', 'managementRole/create'],
+    );
     assert.deepEqual((postCalls[0]?.[1] as { venue?: string }).venue, 'venue-1');
   });
 
@@ -887,7 +908,7 @@ describe('ManagementAccess helpers', () => {
       userEmail: 'user-1@example.com',
       userId: 'user-1',
     });
- 
+
     assert.equal(result.policyId, 'policy-new-user1');
     // Verify it created a new policy instead of mutating the shared one
     const mutatedShared = putCalls.some(([url]) => url.includes('policy-shared-admin'));
@@ -1058,13 +1079,100 @@ describe('ManagementAccess helpers', () => {
     assert.equal(result.roleId, 'role-1');
     assert.equal(putCalls.length, 1);
     assert.equal(putCalls[0]?.[0], 'managementPolicy/policy-1');
-    
+
     // Verify that the entry for entity was updated to FULL and venue was added
     const updatedPayload = putCalls[0]?.[1] as { entries: ManagementPolicyEntry[] };
     assert.equal(updatedPayload.entries.length, 1);
     assert.deepEqual(updatedPayload.entries[0]?.users, ['user-1']);
     assert.deepEqual(updatedPayload.entries[0].resources.sort(), ['entity', 'venue'].sort());
     assert.deepEqual(updatedPayload.entries[0].access, ['FULL']);
+  });
+
+  it('regression: assignUserAccess PUT payload drops removed resources from existing policy', async () => {
+    const putCalls: Array<[string, unknown]> = [];
+
+    setAxiosMocks({
+      get: async (url: string) => {
+        if (url === 'managementRole?userId=user-1&entityId=entity-1') {
+          return {
+            data: {
+              managementRoles: [
+                {
+                  id: 'role-1',
+                  entity: 'entity-1',
+                  venue: '',
+                  managementPolicy: 'policy-1',
+                  users: ['user-1'],
+                  name: 'Entity Admin - user@example.com',
+                },
+              ],
+            },
+          };
+        }
+        if (url === 'managementPolicy/policy-1') {
+          return {
+            data: {
+              id: 'policy-1',
+              entity: 'policy-owner-entity',
+              venue: '',
+              name: 'admin policy',
+              entries: [
+                {
+                  users: ['user-1'],
+                  resources: ['entity', 'venue'],
+                  access: ['READ'],
+                  policy: JSON.stringify({
+                    type: 'entity',
+                    entityId: 'entity-1',
+                    includeVenues: true,
+                    includeChildEntities: true,
+                  }),
+                },
+              ],
+            },
+          };
+        }
+        if (url === 'managementRole?entity=entity-1&venue=') {
+          return { data: { managementRoles: [] } };
+        }
+        throw new Error(`Unexpected GET ${url}`);
+      },
+      post: async () => {
+        throw new Error('POST should not be called');
+      },
+      put: async (url: string, payload: unknown) => {
+        putCalls.push([url, payload]);
+        return { data: {} };
+      },
+    });
+
+    const result = await assignUserAccess({
+      access: [],
+      resources: ['operator', 'inventory'],
+      resourcePermissions: [
+        { resource: 'operator', access: ['READ'] },
+        { resource: 'inventory', access: ['READ'] },
+      ],
+      entityId: 'entity-1',
+      roleTemplate: 'Admin',
+      scope: 'entity',
+      userEmail: 'user@example.com',
+      userId: 'user-1',
+      policyName: 'admin policy',
+    });
+
+    assert.equal(result.policyId, 'policy-1');
+    assert.equal(result.roleId, 'role-1');
+    assert.equal(putCalls.length, 1);
+    assert.equal(putCalls[0]?.[0], 'managementPolicy/policy-1');
+
+    const updatedPayload = putCalls[0]?.[1] as { entries: ManagementPolicyEntry[] };
+    const resources = updatedPayload.entries
+      .filter((entry) => entry.users.includes('user-1'))
+      .flatMap((entry) => entry.resources)
+      .sort();
+
+    assert.deepEqual(resources, ['inventory', 'operator']);
   });
 
   it('regression: policy shared by multiple roles is not overwritten', async () => {
@@ -1247,7 +1355,7 @@ describe('ManagementAccess helpers', () => {
 
     assert.equal(result.policyId, 'policy-1');
     const updatedPayload = putCalls[0]?.[1] as { entries: ManagementPolicyEntry[] };
-    
+
     assert.equal(updatedPayload.entries.length, 2);
     const entityEntry = updatedPayload.entries.find((e) => e.resources.includes('entity'));
     const unrelatedEntry = updatedPayload.entries.find((e) => e.resources.includes('unrelated-resource'));
@@ -1292,6 +1400,56 @@ describe('ManagementAccess helpers', () => {
     assert.deepEqual(merged[0]?.users, ['user-1']);
     assert.deepEqual(merged[0]?.resources, ['entity']);
     assert.deepEqual(merged[0]?.access, ['READ']);
+  });
+
+  it('regression: updating a user policy removes resources no longer selected', () => {
+    const policyContext = JSON.stringify({
+      type: 'entity',
+      entityId: 'entity-1',
+      includeVenues: true,
+      includeChildEntities: true,
+    });
+    const existing: ManagementPolicyEntry[] = [
+      {
+        users: ['user-1'],
+        resources: ['entity', 'venue'],
+        access: ['READ'],
+        policy: policyContext,
+      },
+      {
+        users: ['user-2'],
+        resources: ['venue'],
+        access: ['READ'],
+        policy: policyContext,
+      },
+    ];
+    const target: ManagementPolicyEntry[] = [
+      {
+        users: ['user-1'],
+        resources: ['operator'],
+        access: ['READ'],
+        policy: policyContext,
+      },
+      {
+        users: ['user-1'],
+        resources: ['inventory'],
+        access: ['READ'],
+        policy: policyContext,
+      },
+    ];
+
+    const merged = mergePolicyEntries(existing, target, 'user-1');
+    const userOneResources = merged
+      .filter((entry) => entry.users.includes('user-1'))
+      .flatMap((entry) => entry.resources)
+      .sort();
+    const userTwoResources = merged
+      .filter((entry) => entry.users.includes('user-2'))
+      .flatMap((entry) => entry.resources)
+      .sort();
+
+    assert.deepEqual(userOneResources, ['inventory', 'operator']);
+    assert.deepEqual(userTwoResources, ['venue']);
   });
 
   it('security: Admin attempts to grant managementPolicy + FULL -> allowed', async () => {
@@ -1502,8 +1660,8 @@ describe('ManagementAccess helpers', () => {
       }),
       (err: Error) =>
         err.message.includes(
-          'Privilege escalation: You cannot grant permission FULL on venue as it exceeds your own permissions'
-        )
+          'Privilege escalation: You cannot grant permission FULL on venue as it exceeds your own permissions',
+        ),
     );
   });
 
@@ -1519,10 +1677,7 @@ describe('ManagementAccess helpers', () => {
         userId: 'user-2',
         currentUserRole: 'admin',
       }),
-      (err: Error) =>
-        err.message.includes(
-          'Caller authentication context missing: cannot verify permissions'
-        )
+      (err: Error) => err.message.includes('Caller authentication context missing: cannot verify permissions'),
     );
   });
 
@@ -1548,8 +1703,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'admin',
         currentUserId: 'admin-1',
       }),
-      (err: Error) =>
-        err.message.includes('You are not authorized to manage this entity')
+      (err: Error) => err.message.includes('You are not authorized to manage this entity'),
     );
   });
 
@@ -1598,8 +1752,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'admin',
         currentUserId: 'admin-1',
       }),
-      (err: Error) =>
-        err.message.includes('You are not authorized to manage this venue')
+      (err: Error) => err.message.includes('You are not authorized to manage this venue'),
     );
   });
 
@@ -1638,8 +1791,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'admin',
         currentUserId: 'admin-1',
       }),
-      (err: Error) =>
-        err.message.includes('Venue ID is required for venue scope')
+      (err: Error) => err.message.includes('Venue ID is required for venue scope'),
     );
   });
 
@@ -1683,7 +1835,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'admin',
         currentUserId: 'admin-1',
       }),
-      (err: Error) => err.message.includes('Venue does not exist')
+      (err: Error) => err.message.includes('Venue does not exist'),
     );
   });
 
@@ -1731,8 +1883,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'admin',
         currentUserId: 'admin-1',
       }),
-      (err: Error) =>
-        err.message.includes('Cross-entity venue assignment is rejected')
+      (err: Error) => err.message.includes('Cross-entity venue assignment is rejected'),
     );
   });
 
@@ -1765,8 +1916,7 @@ describe('ManagementAccess helpers', () => {
         currentUserRole: 'root',
         currentUserId: 'root-1',
       }),
-      (err: Error) =>
-        err.message.includes('Cross-entity venue assignment is rejected')
+      (err: Error) => err.message.includes('Cross-entity venue assignment is rejected'),
     );
   });
 
@@ -1879,7 +2029,7 @@ describe('ManagementAccess helpers', () => {
     assert.equal(result.roleId, 'role-empty');
     assert.equal(postCalls.length, 2);
     assert.equal(postCalls[0]?.[0], 'managementPolicy/create');
-    
+
     const policyPayload = postCalls[0]?.[1] as { entries: Array<{ resources: string[]; access: string[] }> };
     assert.deepEqual(policyPayload.entries, []);
   });
@@ -1917,6 +2067,21 @@ describe('ManagementAccess helpers', () => {
       assert.equal(getCalls[0], 'managementRole?userId=user-1');
       assert.equal(roles.length, 1);
       assert.equal(roles[0]?.id, 'role-1');
+    });
+
+    it('deletes a management policy by id', async () => {
+      const deleteCalls: string[] = [];
+
+      setAxiosMocks({
+        delete: async (url: string) => {
+          deleteCalls.push(url);
+          return { data: {} };
+        },
+      });
+
+      await deleteManagementPolicy({ policyId: 'policy-1' });
+
+      assert.deepEqual(deleteCalls, ['managementPolicy/policy-1']);
     });
 
     it('determines if the assign access button should be disabled under various scenarios', () => {
