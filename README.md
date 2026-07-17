@@ -17,8 +17,8 @@ This service is part of [Mango Cloud](https://www.mangowifi.cloud/), Router Arch
 Within Mango Cloud, **OWPROV-UI** serves as the **Provisioning Operator Web Console** (integrated into the primary management dashboard).
 
 Key integrations include:
-* **Provisioning Control Panel**: Interacts with the Provisioning REST API (`owprov` port `16005`) to visually construct logical entity structures (e.g. MDU properties, floors, rooms).
-* **Security & Auth Integration**: Authenticates operators and signs requests via the Security Service (`owsec` port `16001`), utilizing JWT tokens.
+* **Provisioning Control Panel**: Interacts with the Provisioning REST API (typically default port `16005`) to visually construct logical entity structures (e.g. MDU properties, floors, rooms).
+* **Security & Authentication Integration**: Uses access tokens issued by the Security Service (`owsec`, typically default port `16001`) to authenticate users and authorize API requests.
 * **Device Association Visualizer**: Allows administrators to claim access points and mesh nodes, assign them to venues or entities, and review computed configurations.
 
 ### Resources
