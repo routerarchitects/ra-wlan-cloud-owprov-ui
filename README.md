@@ -60,10 +60,3 @@ To generate production-ready static assets:
 npm run build
 ```
 Once the build completes, the output assets will be generated in the `./build` directory and can be served using Nginx, Apache, or any static content host.
-
-### Configuration
-You can control the endpoint URLs by defining environment variables. Create or edit a `.env` file at the root of the project:
-
-| Variable | Description | Default Value |
-| :--- | :--- | :---: |
-| `VITE_UCENTRALSEC_URL` | The endpoint URL of the Security Service (`owsec`) for authentication | `https://ucentral.dpaas.arilia.com:16001` |
