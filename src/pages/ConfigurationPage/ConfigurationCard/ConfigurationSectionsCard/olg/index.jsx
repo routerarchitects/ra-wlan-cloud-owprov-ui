@@ -7,6 +7,8 @@ import AddSubsectionModal from '../AddSubsectionModal';
 import ExpertModeButton from '../ExpertModeButton';
 import GlobalsSection from '../ap/sections/GlobalsSection';
 import { GLOBALS_SCHEMA } from '../ap/sections/GlobalsSection/globalsConstants';
+import ConfigRawSection from '../ap/sections/ConfigRawSection';
+import { CONFIG_RAW_SCHEMA } from '../ap/sections/ConfigRawSection/configRawConstants';
 import ImportConfigurationButton from '../ImportConfigurationButton';
 import InterfacesSection from '../ap/sections/InterfaceSection';
 import { INTERFACES_SCHEMA } from '../ap/sections/InterfaceSection/interfacesConstants';
@@ -197,6 +199,11 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
     isDirty: false,
     invalidValues: [],
   });
+  const [configRaw, setConfigRaw] = useState({
+    data: CONFIG_RAW_SCHEMA(t).cast(),
+    isDirty: false,
+    invalidValues: [],
+  });
   const [thirdParty, setThirdParty] = useState({
     data: THIRD_PARTY_SCHEMA(t).cast(),
     isDirty: false,
@@ -271,6 +278,14 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
         shouldValidate,
       });
     }
+    if (newActiveConfigs.includes('config-raw')) {
+      setConfigRaw({
+        data: getConfigurationData(normalizedConfigs, 'config-raw'),
+        isDirty: false,
+        invalidValues: [],
+        shouldValidate,
+      });
+    }
     if (newActiveConfigs.includes('third-party')) {
       setThirdParty({
         data: getConfigurationData(normalizedConfigs, 'third-party'),
@@ -304,9 +319,10 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
         nat,
         radios,
         interfaces,
+        'config-raw': configRaw,
         'third-party': thirdParty,
       }),
-    [activeConfigurations, globals, unit, metrics, services, nat, radios, interfaces, thirdParty],
+    [activeConfigurations, globals, unit, metrics, services, nat, radios, interfaces, configRaw, thirdParty],
   );
   const isConfigurationStructureDirty = useMemo(
     () => !isEqual(currentNormalizedConfigurations, persistedNormalizedConfigurations),
@@ -382,6 +398,14 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
             invalidValues: [],
           },
         });
+      if (sub === 'config-raw')
+        setConfigRaw({
+          ...{
+            data: CONFIG_RAW_SCHEMA(t).cast(),
+            isDirty: false,
+            invalidValues: [],
+          },
+        });
       if (sub === 'third-party')
         setThirdParty({
           ...{
@@ -430,6 +454,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
       nat.isDirty ||
       radios.isDirty ||
       interfaces.isDirty ||
+      configRaw.isDirty ||
       thirdParty.isDirty ||
       isConfigurationStructureDirty;
 
@@ -444,6 +469,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
         ...nat.invalidValues,
         ...radios.invalidValues,
         ...interfaces.invalidValues,
+        ...configRaw.invalidValues,
         ...thirdParty.invalidValues,
       ],
       warnings: {
@@ -459,10 +485,11 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
         nat,
         radios,
         interfaces,
+        'config-raw': configRaw,
         'third-party': thirdParty,
       },
     });
-  }, [globals, unit, metrics, services, nat, radios, interfaces, thirdParty, activeConfigurations, isConfigurationStructureDirty]);
+  }, [globals, unit, metrics, services, nat, radios, interfaces, configRaw, thirdParty, activeConfigurations, isConfigurationStructureDirty]);
 
   useEffect(() => {
     if (defaultConfig !== null) setConfigSectionsFromArray(defaultConfig);
@@ -482,6 +509,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
               nat: nat.warnings ?? [],
               radios: radios.warnings ?? [],
               interfaces: interfaces.warnings ?? [],
+              'config-raw': configRaw.warnings ?? [],
               'third-party': thirdParty.warnings ?? [],
             }}
             activeConfigurations={activeConfigurations}
@@ -496,6 +524,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
               nat: nat.invalidValues,
               radios: radios.invalidValues,
               interfaces: interfaces.invalidValues,
+              'config-raw': configRaw.invalidValues,
               'third-party': thirdParty.invalidValues,
             }}
             activeConfigurations={activeConfigurations}
@@ -513,6 +542,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
               },
               radios: radios.data,
               interfaces: interfaces.data,
+              'config-raw': configRaw.data,
               'third-party': thirdParty.data,
             }}
             activeConfigurations={activeConfigurations}
@@ -532,6 +562,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
               { key: 'nat', label: 'Nat' },
               { key: 'radios', label: t('configurations.radios') },
               { key: 'interfaces', label: t('configurations.interfaces') },
+              { key: 'config-raw', label: 'Config Raw' },
               { key: 'third-party', label: t('configurations.third_party') },
             ]}
           />
@@ -547,6 +578,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
               },
               radios: radios.data,
               interfaces: interfaces.data,
+              'config-raw': configRaw.data,
               'third-party': thirdParty.data,
             }}
             activeConfigurations={activeConfigurations}
@@ -572,6 +604,7 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
                   {activeConfigurations.includes('nat') && <Tab>Nat</Tab>}
                   {activeConfigurations.includes('radios') && <Tab>{t('configurations.radios')}</Tab>}
                   {activeConfigurations.includes('interfaces') && <Tab>{t('configurations.interfaces')}</Tab>}
+                  {activeConfigurations.includes('config-raw') && <Tab>Config Raw</Tab>}
                   {activeConfigurations.includes('third-party') && <Tab>{t('configurations.third_party')}</Tab>}
                 </TabList>
                 <TabPanels>
@@ -642,6 +675,16 @@ const ConfigurationSectionsCard = ({ configId, editing, setSections, label, onDe
                         editing={editing}
                         setSection={setInterfaces}
                         sectionInformation={interfaces}
+                        removeSub={removeSub}
+                      />
+                    </TabPanel>
+                  )}
+                  {activeConfigurations.includes('config-raw') && (
+                    <TabPanel>
+                      <ConfigRawSection
+                        editing={editing}
+                        setSection={setConfigRaw}
+                        sectionInformation={configRaw}
                         removeSub={removeSub}
                       />
                     </TabPanel>

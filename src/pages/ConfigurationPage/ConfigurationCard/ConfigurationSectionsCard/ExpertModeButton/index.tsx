@@ -26,6 +26,7 @@ const configurationSections = [
   'radios',
   'ethernet',
   'interfaces',
+  'config-raw',
   'third-party',
 ];
 

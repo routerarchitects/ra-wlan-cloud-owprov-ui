@@ -29,6 +29,7 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
     (errors.radios ?? []).length +
     (errors.ethernet ?? []).length +
     (errors.interfaces ?? []).length +
+    (errors['config-raw'] ?? []).length +
     (errors['third-party'] ?? []).length;
 
   return (
@@ -66,6 +67,7 @@ const ViewConfigErrorsModal = ({ errors, activeConfigurations, isDisabled }) => 
                   radios: activeConfigurations.includes('radios') ? errors.radios : undefined,
                   ethernet: activeConfigurations.includes('ethernet') ? errors.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? errors.interfaces : undefined,
+                  'config-raw': activeConfigurations.includes('config-raw') ? errors['config-raw'] : undefined,
                   'third-party': activeConfigurations.includes('third-party') ? errors['third-party'] : undefined,
                 },
                 null,

@@ -17,6 +17,7 @@ interface Props {
     nat?: string;
     radios?: string;
     ethernet?: string;
+    'config-raw'?: string;
     interfaces?: {
       configuration: InterfaceProps[];
     };
@@ -42,6 +43,7 @@ const ViewJsonConfigModal: React.FC<Props> = ({ configurations, activeConfigurat
         nat: activeConfigurations.includes('nat') ? configurations.nat : undefined,
         radios: activeConfigurations.includes('radios') ? configurations.radios : undefined,
         ethernet: activeConfigurations.includes('ethernet') ? configurations.ethernet : undefined,
+        'config-raw': activeConfigurations.includes('config-raw') ? configurations['config-raw'] : undefined,
         'third-party': activeConfigurations.includes('third-party') ? configurations['third-party'] : undefined,
       };
 

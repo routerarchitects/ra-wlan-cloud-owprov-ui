@@ -8,6 +8,7 @@ const orderedConfigurations = [
   'radios',
   'ethernet',
   'interfaces',
+  'config-raw',
   'third-party',
 ];
 
