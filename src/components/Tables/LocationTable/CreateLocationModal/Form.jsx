@@ -12,6 +12,7 @@ import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import COUNTRY_LIST from 'constants/countryList';
 import { CreateLocationSchema } from 'constants/formSchemas';
+import TIMEZONE_LIST from 'constants/timezoneList';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useCreateLocation } from 'hooks/Network/Locations';
 
@@ -48,6 +49,7 @@ const CreateLocationForm = ({ isOpen, onClose, refresh, formRef, entityId }) => 
         name: '',
         description: '',
         type: 'SERVICE',
+        timezone: '',
         addressLineOne: '',
         addressLineTwo: '',
         city: '',
@@ -67,6 +69,7 @@ const CreateLocationForm = ({ isOpen, onClose, refresh, formRef, entityId }) => 
           name,
           description,
           type,
+          timezone,
           addressLineOne,
           addressLineTwo,
           city,
@@ -81,13 +84,17 @@ const CreateLocationForm = ({ isOpen, onClose, refresh, formRef, entityId }) => 
           note,
         },
         { setSubmitting, resetForm },
-      ) =>
-        create.mutateAsync(
+      ) => {
+        const cleanAddressLines = [addressLineOne, addressLineTwo].filter(
+          (line) => line && line.trim() !== '',
+        );
+        return create.mutateAsync(
           {
             name,
             description,
             type,
-            addressLines: [addressLineOne, addressLineTwo],
+            timezone,
+            addressLines: cleanAddressLines,
             city,
             state,
             postal,
@@ -137,8 +144,8 @@ const CreateLocationForm = ({ isOpen, onClose, refresh, formRef, entityId }) => 
               setSubmitting(false);
             },
           },
-        )
-      }
+        );
+      }}
     >
       {({ errors, touched, setFieldValue }) => (
         <Form>
@@ -195,6 +202,14 @@ const CreateLocationForm = ({ isOpen, onClose, refresh, formRef, entityId }) => 
 
           <AddressSearchField placeholder={t('common.address_search_autofill')} maxWidth="600px" mb={2} />
           <SimpleGrid minChildWidth="300px" spacing="20px" mb={8}>
+            <SelectField
+              name="timezone"
+              label={t('locations.timezone')}
+              errors={errors}
+              touched={touched}
+              options={[{ label: t('common.none'), value: '' }, ...TIMEZONE_LIST]}
+              isRequired
+            />
             <StringField
               name="addressLineOne"
               label={t('locations.address_line_one')}

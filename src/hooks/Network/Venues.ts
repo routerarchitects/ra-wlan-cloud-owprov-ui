@@ -115,7 +115,7 @@ export const useGetVenue = ({ id }: { id?: string }) => {
 
 export const useCreateVenue = () =>
   useMutation(({ params, createObjects }: { params: unknown; createObjects: unknown }) =>
-    axiosProv.post(`venue/0${createObjects ? `?createObjects=${JSON.stringify(createObjects)}` : ''}`, params),
+    axiosProv.post('venue/0', createObjects ? { ...(params as Record<string, unknown>), createObjects } : params),
   );
 
 export const useUpdateVenue = ({ id }: { id: string }) => {
@@ -124,7 +124,7 @@ export const useUpdateVenue = ({ id }: { id: string }) => {
   return useMutation(
     ({ params, createObjects }: { params: Partial<VenueApiResponse>; createObjects?: unknown }) =>
       axiosProv
-        .put(`venue/${id}${createObjects ? `?createObjects=${JSON.stringify(createObjects)}` : ''}`, params)
+        .put(`venue/${id}`, createObjects ? { ...params, createObjects } : params)
         .then((res: { data: VenueApiResponse }) => res),
     {
       onSuccess: ({ data }) => {

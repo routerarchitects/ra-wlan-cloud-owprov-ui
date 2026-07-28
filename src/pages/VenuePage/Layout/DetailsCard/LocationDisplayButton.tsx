@@ -1,11 +1,12 @@
 import * as React from 'react';
-import { Box, Heading, Icon, Tooltip, useColorModeValue, useDisclosure } from '@chakra-ui/react';
+import { Box, Heading, Icon, Text, Tooltip, useColorModeValue, useDisclosure } from '@chakra-ui/react';
 import { Wrapper } from '@googlemaps/react-wrapper';
 import { Globe } from '@phosphor-icons/react';
 import { useTranslation } from 'react-i18next';
 import { GoogleMap } from 'components/GoogleMap';
 import { GoogleMapMarker } from 'components/GoogleMap/Marker';
 import { Modal } from 'components/Modals/Modal';
+import TIMEZONE_LIST from 'constants/timezoneList';
 import { useGetLocation } from 'hooks/Network/Locations';
 import { useGetSystemSecret } from 'hooks/Network/Secrets';
 
@@ -34,9 +35,25 @@ const LocationDisplayButton = ({ locationId }: Props) => {
     }
   }, [getLocation.data?.geoCode]);
 
+  const timezoneLabel = React.useMemo(() => {
+    if (!getLocation.data?.timezone) return undefined;
+    const match = TIMEZONE_LIST.find((tz) => tz.value === getLocation.data?.timezone);
+    return match ? match.label : getLocation.data.timezone;
+  }, [getLocation.data?.timezone]);
+
   if (!getLocation.data) {
     return null;
   }
+
+  const addressString = [
+    ...getLocation.data.addressLines.filter((address) => address.length > 0),
+    getLocation.data.city,
+    getLocation.data.state,
+    getLocation.data.postal,
+    getLocation.data.country,
+  ]
+    .filter((part) => part && part.trim() !== '')
+    .join(', ');
 
   return (
     <>
@@ -45,15 +62,12 @@ const LocationDisplayButton = ({ locationId }: Props) => {
       </Tooltip>
       <Modal isOpen={isOpen} onClose={onClose} title={getLocation.data?.name ?? t('locations.one')}>
         <Box w="100%" h="100%">
-          <Heading size="sm">
-            {[
-              ...getLocation.data.addressLines.filter((address) => address.length > 0),
-              getLocation.data.city,
-              getLocation.data.state,
-              getLocation.data.postal,
-              getLocation.data.country,
-            ].join(', ')}
-          </Heading>
+          {addressString.length > 0 ? <Heading size="sm">{addressString}</Heading> : null}
+          {timezoneLabel ? (
+            <Text mt={addressString.length > 0 ? 2 : 0} fontSize="sm">
+              <Text as="span" fontWeight="bold">{t('locations.timezone')}:</Text> {timezoneLabel}
+            </Text>
+          ) : null}
           {parsedLocation && getGoogleApiKey.data ? (
             <Box h="500px" my={4}>
               <Wrapper apiKey={getGoogleApiKey.data.value}>

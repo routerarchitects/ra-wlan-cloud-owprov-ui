@@ -835,6 +835,7 @@
     "other": "Locations",
     "postal": "ZIP/Postal Code",
     "state": "State/Province",
+    "timezone": "Timezone",
     "title": "Locations",
     "to_claim": "Locations to claim",
     "view_gps": "View GPS Location"

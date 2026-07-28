@@ -17,6 +17,7 @@ export interface CreateLocation {
   inUse?: string[];
   entity: string;
   geoCode: string;
+  timezone: string;
 }
 
 export interface Location {
@@ -36,6 +37,7 @@ export interface Location {
   inUse: string[];
   entity: string;
   geoCode: string;
+  timezone?: string;
 }
 
 export interface AddressValue {

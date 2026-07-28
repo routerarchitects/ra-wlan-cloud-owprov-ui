@@ -79,6 +79,7 @@ const LocationPickerCreator = ({
         name: '',
         description: '',
         type: 'SERVICE',
+        timezone: '',
         addressLineOne: '',
         addressLineTwo: '',
         city: '',

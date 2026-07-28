@@ -13,6 +13,7 @@ import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import ModalHeader from 'components/Modals/ModalHeader';
 import COUNTRY_LIST from 'constants/countryList';
 import { CreateLocationSchema } from 'constants/formSchemas';
+import TIMEZONE_LIST from 'constants/timezoneList';
 import useFormRef from 'hooks/useFormRef';
 
 const propTypes = {
@@ -66,12 +67,13 @@ const LocationPickerCreatorModal = ({ setLocation, reset }) => {
               name: '',
               description: '',
               type: 'SERVICE',
+              timezone: '',
               addressLineOne: '',
               addressLineTwo: '',
               city: '',
               state: '',
               postal: '',
-              country: 'US',
+              country: '',
               buildingName: '',
               mobiles: [],
               phones: [],
@@ -84,6 +86,7 @@ const LocationPickerCreatorModal = ({ setLocation, reset }) => {
                 name,
                 description,
                 type,
+                timezone,
                 addressLineOne,
                 addressLineTwo,
                 city,
@@ -98,11 +101,17 @@ const LocationPickerCreatorModal = ({ setLocation, reset }) => {
               },
               { resetForm },
             ) => {
+              const cleanAddressLines = [addressLineOne, addressLineTwo].filter(
+                (line) => line && line.trim() !== '',
+              );
               setLocation({
                 name,
                 description,
                 type,
-                addressLines: [addressLineOne, addressLineTwo],
+                timezone,
+                addressLineOne,
+                addressLineTwo,
+                addressLines: cleanAddressLines,
                 city,
                 state,
                 postal,
@@ -139,6 +148,12 @@ const LocationPickerCreatorModal = ({ setLocation, reset }) => {
               </SimpleGrid>
               <AddressSearchField placeholder={t('common.address_search_autofill')} maxWidth="600px" mb={2} />
               <SimpleGrid minChildWidth="300px" spacing="20px" mb={8}>
+                <SelectField
+                  name="timezone"
+                  label={t('locations.timezone')}
+                  options={[{ label: t('common.none'), value: '' }, ...TIMEZONE_LIST]}
+                  isRequired
+                />
                 <StringField name="addressLineOne" label={t('locations.address_line_one')} isRequired />
                 <StringField name="addressLineTwo" label={t('locations.address_line_two')} />
                 <StringField name="city" label={t('locations.city')} isRequired />

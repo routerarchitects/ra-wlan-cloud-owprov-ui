@@ -115,14 +115,15 @@ const EditTagModal = ({
   const getOverrides = useGetDeviceConfigurationOverrides({ serialNumber: tag?.serialNumber });
   const updateTag = useMutation((tagInfo) =>
     axiosProv.put(
-      `inventory/${tag?.serialNumber}${
-        tagInfo.__newConfig
-          ? `?createObjects=${JSON.stringify({
+      `inventory/${tag?.serialNumber}`,
+      tagInfo.__newConfig
+        ? {
+            ...tagInfo,
+            createObjects: {
               objects: [{ configuration: tagInfo.__newConfig }],
-            })}`
-          : ''
-      }`,
-      tagInfo,
+            },
+          }
+        : tagInfo,
     ),
   );
 

@@ -268,7 +268,7 @@ export const testSelectPorts = (obj: TestSelectPortsProps) => {
   return true;
 };
 
-export const testObjectName = (str?: string) => (str ? str.length <= 30 : false);
+export const testObjectName = (str?: string) => (str ? str.length <= 128 : false);
 
 export const isValidEmailAddress = (email: string) =>
   email.match(

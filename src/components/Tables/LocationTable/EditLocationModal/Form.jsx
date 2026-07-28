@@ -12,6 +12,7 @@ import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import COUNTRY_LIST from 'constants/countryList';
 import { CreateLocationSchema } from 'constants/formSchemas';
+import TIMEZONE_LIST from 'constants/timezoneList';
 import { LocationShape } from 'constants/propShapes';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useUpdateLocation } from 'hooks/Network/Locations';
@@ -43,6 +44,7 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
       key={formKey}
       initialValues={{
         ...location,
+        timezone: location.timezone ?? '',
         addressLineOne: location.addressLines[0],
         addressLineTwo: location.addressLines.length >= 2 ? location.addressLines[1] : '',
       }}
@@ -52,6 +54,7 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
           name,
           description,
           type,
+          timezone,
           addressLineOne,
           addressLineTwo,
           city,
@@ -66,13 +69,17 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
           notes,
         },
         { setSubmitting, resetForm },
-      ) =>
-        updateLocation.mutateAsync(
+      ) => {
+        const cleanAddressLines = [addressLineOne, addressLineTwo].filter(
+          (line) => line && line.trim() !== '',
+        );
+        return updateLocation.mutateAsync(
           {
             name,
             description,
             type,
-            addressLines: [addressLineOne, addressLineTwo],
+            timezone,
+            addressLines: cleanAddressLines,
             city,
             state,
             postal,
@@ -119,8 +126,8 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
               setSubmitting(false);
             },
           },
-        )
-      }
+        );
+      }}
     >
       {({ setFieldValue }) => (
         <Tabs variant="enclosed">
@@ -181,21 +188,26 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
                   isDisabled={!editing}
                 />
                 <SimpleGrid minChildWidth="300px" spacing="20px" mb={8}>
-                  <StringField
-                    name="addressLineOne"
-                    label={t('locations.address_line_one')}
+                  <SelectField
+                    name="timezone"
+                    label={t('locations.timezone')}
+                    options={[{ label: t('common.none'), value: '' }, ...TIMEZONE_LIST]}
                     isRequired
                     isDisabled={!editing}
                   />
+                  <StringField
+                    name="addressLineOne"
+                    label={t('locations.address_line_one')}
+                    isDisabled={!editing}
+                  />
                   <StringField name="addressLineTwo" label={t('locations.address_line_two')} isDisabled={!editing} />
-                  <StringField name="city" label={t('locations.city')} isRequired isDisabled={!editing} />
-                  <StringField name="state" label={t('locations.state')} isRequired isDisabled={!editing} />
-                  <StringField name="postal" label={t('locations.postal')} isRequired isDisabled={!editing} />
+                  <StringField name="city" label={t('locations.city')} isDisabled={!editing} />
+                  <StringField name="state" label={t('locations.state')} isDisabled={!editing} />
+                  <StringField name="postal" label={t('locations.postal')} isDisabled={!editing} />
                   <SelectField
                     name="country"
                     label={t('locations.country')}
                     options={[{ label: t('common.none'), value: '' }, ...COUNTRY_LIST]}
-                    isRequired
                     isDisabled={!editing}
                   />
                   <StringField name="buildingName" label={t('locations.building_name')} isDisabled={!editing} />

@@ -41,14 +41,15 @@ const CreateTagModal = ({ refresh, entityId, subId, deviceClass }) => {
 
   const create = useMutation((newObj) =>
     axiosProv.post(
-      `inventory/${newObj.serialNumber}${
-        newObj.__newConfig
-          ? `?createObjects=${JSON.stringify({
+      `inventory/${newObj.serialNumber}`,
+      newObj.__newConfig
+        ? {
+            ...newObj,
+            createObjects: {
               objects: [{ configuration: newObj.__newConfig }],
-            })}`
-          : ''
-      }`,
-      newObj,
+            },
+          }
+        : newObj,
     ),
   );
 

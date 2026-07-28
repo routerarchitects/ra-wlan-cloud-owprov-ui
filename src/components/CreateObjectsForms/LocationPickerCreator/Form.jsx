@@ -7,6 +7,7 @@ import CreatableSelectField from 'components/FormFields/CreatableSelectField';
 import SelectField from 'components/FormFields/SelectField';
 import StringField from 'components/FormFields/StringField';
 import COUNTRY_LIST from 'constants/countryList';
+import TIMEZONE_LIST from 'constants/timezoneList';
 
 const propTypes = {
   name: PropTypes.string.isRequired,
@@ -38,12 +39,23 @@ const Form = ({ name }) => {
       </SimpleGrid>
       <AddressSearchField placeholder={t('common.address_search_autofill')} namePrefix={name} maxWidth="600px" mb={2} />
       <SimpleGrid minChildWidth="300px" spacing="20px" mb={8}>
+        <SelectField
+          name={`${name}.timezone`}
+          label={t('locations.timezone')}
+          options={[{ label: t('common.none'), value: '' }, ...TIMEZONE_LIST]}
+          isRequired
+        />
         <StringField name={`${name}.addressLineOne`} label={t('locations.address_line_one')} isRequired />
         <StringField name={`${name}.addressLineTwo`} label={t('locations.address_line_two')} />
         <StringField name={`${name}.city`} label={t('locations.city')} isRequired />
         <StringField name={`${name}.state`} label={t('locations.state')} isRequired />
         <StringField name={`${name}.postal`} label={t('locations.postal')} isRequired />
-        <SelectField name={`${name}.country`} label={t('locations.country')} options={COUNTRY_LIST} />
+        <SelectField
+          name={`${name}.country`}
+          label={t('locations.country')}
+          options={[{ label: t('common.none'), value: '' }, ...COUNTRY_LIST]}
+          isRequired
+        />
         <StringField name={`${name}.buildingName`} label={t('locations.building_name')} />
         <StringField name={`${name}.geoCode`} label={t('locations.geocode')} />
       </SimpleGrid>
