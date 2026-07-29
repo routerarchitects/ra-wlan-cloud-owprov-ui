@@ -198,16 +198,18 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
                   <StringField
                     name="addressLineOne"
                     label={t('locations.address_line_one')}
+                    isRequired
                     isDisabled={!editing}
                   />
                   <StringField name="addressLineTwo" label={t('locations.address_line_two')} isDisabled={!editing} />
-                  <StringField name="city" label={t('locations.city')} isDisabled={!editing} />
-                  <StringField name="state" label={t('locations.state')} isDisabled={!editing} />
-                  <StringField name="postal" label={t('locations.postal')} isDisabled={!editing} />
+                  <StringField name="city" label={t('locations.city')} isRequired isDisabled={!editing} />
+                  <StringField name="state" label={t('locations.state')} isRequired isDisabled={!editing} />
+                  <StringField name="postal" label={t('locations.postal')} isRequired isDisabled={!editing} />
                   <SelectField
                     name="country"
                     label={t('locations.country')}
                     options={[{ label: t('common.none'), value: '' }, ...COUNTRY_LIST]}
+                    isRequired
                     isDisabled={!editing}
                   />
                   <StringField name="buildingName" label={t('locations.building_name')} isDisabled={!editing} />
