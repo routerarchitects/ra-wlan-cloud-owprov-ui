@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { GoogleMap } from 'components/GoogleMap';
 import { GoogleMapMarker } from 'components/GoogleMap/Marker';
 import { Modal } from 'components/Modals/Modal';
-import TIMEZONE_LIST from 'constants/timezoneList';
+import { formatTimezoneLabel } from 'constants/timezoneList';
 import { useGetLocation } from 'hooks/Network/Locations';
 import { useGetSystemSecret } from 'hooks/Network/Secrets';
 
@@ -37,8 +37,7 @@ const LocationDisplayButton = ({ locationId }: Props) => {
 
   const timezoneLabel = React.useMemo(() => {
     if (!getLocation.data?.timezone) return undefined;
-    const match = TIMEZONE_LIST.find((tz) => tz.value === getLocation.data?.timezone);
-    return match ? match.label : getLocation.data.timezone;
+    return formatTimezoneLabel(getLocation.data.timezone);
   }, [getLocation.data?.timezone]);
 
   if (!getLocation.data) {

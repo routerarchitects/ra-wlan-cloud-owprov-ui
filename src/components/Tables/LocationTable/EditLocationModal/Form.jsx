@@ -12,7 +12,7 @@ import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import COUNTRY_LIST from 'constants/countryList';
 import { CreateLocationSchema } from 'constants/formSchemas';
-import TIMEZONE_LIST from 'constants/timezoneList';
+import TIMEZONE_LIST, { getTimezoneOptions } from 'constants/timezoneList';
 import { LocationShape } from 'constants/propShapes';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useUpdateLocation } from 'hooks/Network/Locations';
@@ -191,7 +191,7 @@ const EditLocationForm = ({ editing, isOpen, onClose, refresh, location, formRef
                   <SelectField
                     name="timezone"
                     label={t('locations.timezone')}
-                    options={[{ label: t('common.none'), value: '' }, ...TIMEZONE_LIST]}
+                    options={[{ label: t('common.none'), value: '' }, ...getTimezoneOptions(location?.timezone)]}
                     isRequired
                     isDisabled={!editing}
                   />

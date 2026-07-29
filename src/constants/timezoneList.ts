@@ -1,40 +1,127 @@
-// IANA Timezone options for Location entity.
-// Values are IANA timezone IDs; labels present clear, accurate regional names.
-const TIMEZONE_LIST = [
-  { value: 'America/Anchorage', label: 'Alaska Standard Time (UTC-9:00)' },
-  { value: 'America/Puerto_Rico', label: 'Atlantic Standard Time (Puerto Rico, UTC-4:00)' },
-  { value: 'Australia/Adelaide', label: 'Australian Central Time (Adelaide, UTC+9:30)' },
-  { value: 'Australia/Sydney', label: 'Australian Eastern Time (Sydney, Melbourne, UTC+10:00)' },
-  { value: 'Australia/Perth', label: 'Australian Western Standard Time (Perth, UTC+8:00)' },
-  { value: 'Asia/Dhaka', label: 'Bangladesh Standard Time (UTC+6:00)' },
-  { value: 'America/Sao_Paulo', label: 'Brasilia Time (Sao Paulo, UTC-3:00)' },
-  { value: 'Atlantic/Cape_Verde', label: 'Cape Verde Time (UTC-1:00)' },
-  { value: 'Europe/Paris', label: 'Central European Time (Paris, Berlin, Rome, UTC+1:00)' },
-  { value: 'America/Chicago', label: 'Central Time (US & Canada, UTC-6:00)' },
-  { value: 'Asia/Shanghai', label: 'China Standard Time (Beijing, Shanghai, UTC+8:00)' },
-  { value: 'Africa/Nairobi', label: 'Eastern African Time (Nairobi, UTC+3:00)' },
-  { value: 'Europe/Athens', label: 'Eastern European Time (Athens, Bucharest, UTC+2:00)' },
-  { value: 'America/New_York', label: 'Eastern Time (US & Canada, UTC-5:00)' },
-  { value: 'Africa/Cairo', label: 'Egypt Standard Time (UTC+2:00)' },
-  { value: 'Asia/Dubai', label: 'Gulf Standard Time (Dubai, UTC+4:00)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii Standard Time (UTC-10:00)' },
-  { value: 'Asia/Kolkata', label: 'India Standard Time (UTC+5:30)' },
-  { value: 'Asia/Bangkok', label: 'Indochina Time (Bangkok, Hanoi, UTC+7:00)' },
-  { value: 'Asia/Tehran', label: 'Iran Standard Time (UTC+3:30)' },
-  { value: 'Asia/Tokyo', label: 'Japan Standard Time (Tokyo, UTC+9:00)' },
-  { value: 'Asia/Seoul', label: 'Korea Standard Time (Seoul, UTC+9:00)' },
-  { value: 'Pacific/Midway', label: 'Midway Islands Time (UTC-11:00)' },
-  { value: 'America/Phoenix', label: 'Mountain Standard Time (Arizona - No DST, UTC-7:00)' },
-  { value: 'America/Denver', label: 'Mountain Time (US & Canada, UTC-7:00)' },
-  { value: 'America/St_Johns', label: 'Newfoundland Time (UTC-3:30)' },
-  { value: 'Pacific/Auckland', label: 'New Zealand Standard Time (Auckland, UTC+12:00)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (US & Canada, UTC-8:00)' },
-  { value: 'Asia/Karachi', label: 'Pakistan Standard Time (UTC+5:00)' },
-  { value: 'Asia/Singapore', label: 'Singapore Standard Time (UTC+8:00)' },
-  { value: 'Pacific/Guadalcanal', label: 'Solomon Islands Time (UTC+11:00)' },
-  { value: 'Africa/Johannesburg', label: 'South Africa Standard Time (UTC+2:00)' },
-  { value: 'Europe/London', label: 'United Kingdom / London Time (GMT/BST, UTC+0:00)' },
-  { value: 'UTC', label: 'Universal Coordinated Time (UTC+0:00)' },
-].sort((a, b) => a.label.localeCompare(b.label));
+// Dynamic IANA Timezone helper & options for Location entity.
+// Sources the complete IANA timezone set via Intl.supportedValuesOf('timeZone')
+// and dynamically calculates current UTC offsets to account for Daylight Saving Time (DST).
+
+const LEGACY_CANONICAL_MAP: Record<string, string> = {
+  'Asia/Calcutta': 'Asia/Kolkata',
+  'Europe/Kiev': 'Europe/Kyiv',
+  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
+  'Asia/Rangoon': 'Asia/Yangon',
+  'Asia/Katmandu': 'Asia/Kathmandu',
+  'America/Godthab': 'America/Nuuk',
+  'Africa/Asmera': 'Africa/Asmara',
+};
+
+export const getTimezoneOffsetString = (timeZone: string, date = new Date()): string => {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'shortOffset',
+    });
+    const parts = formatter.formatToParts(date);
+    const tzPart = parts.find((p) => p.type === 'timeZoneName');
+    if (tzPart && tzPart.value) {
+      let val = tzPart.value.replace('GMT', 'UTC');
+      if (val === 'UTC') return 'UTC+0:00';
+      if (!val.includes(':')) {
+        val = `${val}:00`;
+      }
+      return val;
+    }
+  } catch (e) {
+    // Return empty if timezone is invalid or unsupported by browser runtime
+  }
+  return '';
+};
+
+export const formatTimezoneLabel = (timeZone: string): string => {
+  if (!timeZone) return '';
+  const offset = getTimezoneOffsetString(timeZone);
+  return offset ? `${timeZone} (${offset})` : timeZone;
+};
+
+export const getSupportedTimezones = (): string[] => {
+  let rawZones: string[] = [];
+  if (typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
+    try {
+      rawZones = (Intl as any).supportedValuesOf('timeZone') as string[];
+    } catch (e) {
+      // Fallback if unsupported
+    }
+  }
+
+  if (!Array.isArray(rawZones) || rawZones.length === 0) {
+    rawZones = [
+      'UTC',
+      'Africa/Cairo',
+      'Africa/Johannesburg',
+      'Africa/Nairobi',
+      'America/Anchorage',
+      'America/Chicago',
+      'America/Denver',
+      'America/Los_Angeles',
+      'America/New_York',
+      'America/Phoenix',
+      'America/Puerto_Rico',
+      'America/Sao_Paulo',
+      'America/St_Johns',
+      'America/Toronto',
+      'America/Vancouver',
+      'Asia/Bangkok',
+      'Asia/Dhaka',
+      'Asia/Dubai',
+      'Asia/Jakarta',
+      'Asia/Karachi',
+      'Asia/Kolkata',
+      'Asia/Manila',
+      'Asia/Seoul',
+      'Asia/Shanghai',
+      'Asia/Singapore',
+      'Asia/Tehran',
+      'Asia/Tokyo',
+      'Atlantic/Cape_Verde',
+      'Australia/Adelaide',
+      'Australia/Brisbane',
+      'Australia/Perth',
+      'Australia/Sydney',
+      'Europe/Athens',
+      'Europe/Dublin',
+      'Europe/London',
+      'Europe/Paris',
+      'Pacific/Auckland',
+      'Pacific/Guadalcanal',
+      'Pacific/Honolulu',
+      'Pacific/Midway',
+    ];
+  }
+
+  const set = new Set<string>();
+  rawZones.forEach((tz) => {
+    const canonical = LEGACY_CANONICAL_MAP[tz] || tz;
+    set.add(canonical);
+  });
+
+  return Array.from(set);
+};
+
+export const getTimezoneOptions = (currentValue?: string): { label: string; value: string }[] => {
+  const rawList = getSupportedTimezones();
+  const optionsMap = new Map<string, { label: string; value: string }>();
+
+  rawList.forEach((tz) => {
+    optionsMap.set(tz, { value: tz, label: formatTimezoneLabel(tz) });
+  });
+
+  if (currentValue && currentValue.trim() !== '' && !optionsMap.has(currentValue)) {
+    optionsMap.set(currentValue, {
+      value: currentValue,
+      label: formatTimezoneLabel(currentValue),
+    });
+  }
+
+  return Array.from(optionsMap.values()).sort((a, b) => a.value.localeCompare(b.value));
+};
+
+const TIMEZONE_LIST = getTimezoneOptions();
 
 export default TIMEZONE_LIST;
