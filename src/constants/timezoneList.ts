@@ -3,7 +3,7 @@
 // are available on every browser/runtime, regardless of Intl.supportedValuesOf() support.
 // Intl.DateTimeFormat is kept only for computing the current UTC offset label (DST-aware).
 
-import { getTimeZones } from '@vvo/tzdb';
+import { timeZonesNames } from '@vvo/tzdb';
 
 export const getTimezoneOffsetString = (timeZone: string, date = new Date()): string => {
   try {
@@ -33,17 +33,7 @@ export const formatTimezoneLabel = (timeZone: string): string => {
   return offset ? `${timeZone} (${offset})` : timeZone;
 };
 
-export const getSupportedTimezones = (): string[] => {
-  // @vvo/tzdb provides a maintained, static IANA timezone list.
-  // Each entry exposes a primary IANA timezone name and the related
-  // IANA timezone IDs grouped with it by @vvo/tzdb.
-  const zones = getTimeZones({ includeUtc: true });
-  const set = new Set<string>(['UTC']);
-  for (const zone of zones) {
-    set.add(zone.name);
-  }
-  return Array.from(set);
-};
+export const getSupportedTimezones = (): string[] => Array.from(new Set(['UTC', ...timeZonesNames]));
 
 export const getTimezoneOptions = (currentValue?: string): { label: string; value: string }[] => {
   const rawList = getSupportedTimezones();
