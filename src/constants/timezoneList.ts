@@ -38,12 +38,9 @@ export const getSupportedTimezones = (): string[] => {
   // Each entry exposes a primary IANA timezone name and the related
   // IANA timezone IDs grouped with it by @vvo/tzdb.
   const zones = getTimeZones({ includeUtc: true });
-  const set = new Set<string>();
+  const set = new Set<string>(['UTC']);
   for (const zone of zones) {
     set.add(zone.name);
-    for (const alt of zone.group) {
-      set.add(alt);
-    }
   }
   return Array.from(set);
 };
