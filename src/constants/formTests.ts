@@ -269,6 +269,7 @@ export const testSelectPorts = (obj: TestSelectPortsProps) => {
 };
 
 export const testObjectName = (str?: string) => (str ? str.length <= 128 : false);
+export const testLocationName = testObjectName;
 
 export const isValidEmailAddress = (email: string) =>
   email.match(

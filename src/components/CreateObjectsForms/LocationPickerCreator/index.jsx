@@ -74,24 +74,26 @@ const LocationPickerCreator = ({
   };
 
   useEffect(() => {
-    if (location === 'CREATE_NEW' && !isModal) {
-      setNewLocation({
-        name: '',
-        description: '',
-        type: 'SERVICE',
-        timezone: '',
-        addressLineOne: '',
-        addressLineTwo: '',
-        city: '',
-        state: '',
-        postal: '',
-        country: '',
-        buildingName: '',
-        mobiles: [],
-        phones: [],
-        geoCode: '',
-        note: '',
-      });
+    if (location === 'CREATE_NEW') {
+      if (!isModal) {
+        setNewLocation({
+          name: '',
+          description: '',
+          type: 'SERVICE',
+          timezone: '',
+          addressLineOne: '',
+          addressLineTwo: '',
+          city: '',
+          state: '',
+          postal: '',
+          country: '',
+          buildingName: '',
+          mobiles: [],
+          phones: [],
+          geoCode: '',
+          note: '',
+        });
+      }
     } else {
       setNewLocation(undefined);
     }

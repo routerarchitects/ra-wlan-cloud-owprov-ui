@@ -31,6 +31,7 @@
     "@react-spring/web": "^9.5.5",
     "@tanstack/react-query": "^4.29.3",
     "@tanstack/react-table": "^8.8.5",
+    "@vvo/tzdb": "^6.198.0",
     "axios": "^1.3.5",
     "buffer": "^6.0.3",
     "chakra-react-select": "^4.6.0",

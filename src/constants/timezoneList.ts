@@ -1,16 +1,9 @@
 // Dynamic IANA Timezone helper & options for Location entity.
-// Sources the complete IANA timezone set via Intl.supportedValuesOf('timeZone')
-// and dynamically calculates current UTC offsets to account for Daylight Saving Time (DST).
+// Uses @vvo/tzdb as the canonical IANA timezone list so the same timezone IDs
+// are available on every browser/runtime, regardless of Intl.supportedValuesOf() support.
+// Intl.DateTimeFormat is kept only for computing the current UTC offset label (DST-aware).
 
-const LEGACY_CANONICAL_MAP: Record<string, string> = {
-  'Asia/Calcutta': 'Asia/Kolkata',
-  'Europe/Kiev': 'Europe/Kyiv',
-  'Asia/Saigon': 'Asia/Ho_Chi_Minh',
-  'Asia/Rangoon': 'Asia/Yangon',
-  'Asia/Katmandu': 'Asia/Kathmandu',
-  'America/Godthab': 'America/Nuuk',
-  'Africa/Asmera': 'Africa/Asmara',
-};
+import { getTimeZones } from '@vvo/tzdb';
 
 export const getTimezoneOffsetString = (timeZone: string, date = new Date()): string => {
   try {
@@ -41,66 +34,17 @@ export const formatTimezoneLabel = (timeZone: string): string => {
 };
 
 export const getSupportedTimezones = (): string[] => {
-  let rawZones: string[] = [];
-  if (typeof Intl !== 'undefined' && typeof (Intl as any).supportedValuesOf === 'function') {
-    try {
-      rawZones = (Intl as any).supportedValuesOf('timeZone') as string[];
-    } catch (e) {
-      // Fallback if unsupported
+  // @vvo/tzdb provides a maintained, static IANA timezone list.
+  // Each entry exposes a primary IANA timezone name and the related
+  // IANA timezone IDs grouped with it by @vvo/tzdb.
+  const zones = getTimeZones({ includeUtc: true });
+  const set = new Set<string>();
+  for (const zone of zones) {
+    set.add(zone.name);
+    for (const alt of zone.group) {
+      set.add(alt);
     }
   }
-
-  if (!Array.isArray(rawZones) || rawZones.length === 0) {
-    rawZones = [
-      'UTC',
-      'Africa/Cairo',
-      'Africa/Johannesburg',
-      'Africa/Nairobi',
-      'America/Anchorage',
-      'America/Chicago',
-      'America/Denver',
-      'America/Los_Angeles',
-      'America/New_York',
-      'America/Phoenix',
-      'America/Puerto_Rico',
-      'America/Sao_Paulo',
-      'America/St_Johns',
-      'America/Toronto',
-      'America/Vancouver',
-      'Asia/Bangkok',
-      'Asia/Dhaka',
-      'Asia/Dubai',
-      'Asia/Jakarta',
-      'Asia/Karachi',
-      'Asia/Kolkata',
-      'Asia/Manila',
-      'Asia/Seoul',
-      'Asia/Shanghai',
-      'Asia/Singapore',
-      'Asia/Tehran',
-      'Asia/Tokyo',
-      'Atlantic/Cape_Verde',
-      'Australia/Adelaide',
-      'Australia/Brisbane',
-      'Australia/Perth',
-      'Australia/Sydney',
-      'Europe/Athens',
-      'Europe/Dublin',
-      'Europe/London',
-      'Europe/Paris',
-      'Pacific/Auckland',
-      'Pacific/Guadalcanal',
-      'Pacific/Honolulu',
-      'Pacific/Midway',
-    ];
-  }
-
-  const set = new Set<string>();
-  rawZones.forEach((tz) => {
-    const canonical = LEGACY_CANONICAL_MAP[tz] || tz;
-    set.add(canonical);
-  });
-
   return Array.from(set);
 };
 

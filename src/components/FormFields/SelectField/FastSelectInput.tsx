@@ -1,7 +1,6 @@
 import React from 'react';
 import { FormControl, FormErrorMessage, FormLabel, Select } from '@chakra-ui/react';
 import isEqual from 'react-fast-compare';
-import { v4 as uuid } from 'uuid';
 import ConfigurationFieldExplanation from '../ConfigurationFieldExplanation';
 import { defaultFormInput, FormInputProps } from 'models/FormField';
 
@@ -50,8 +49,8 @@ const FastSelectInput = (
     border="2px solid"
     w={w}
   >
-    {options.map((option) => (
-      <option value={option.value} key={uuid()}>
+    {options.map((option, idx) => (
+      <option value={option.value} key={`${option.value}-${idx}`}>
         {option.label}
       </option>
     ))}

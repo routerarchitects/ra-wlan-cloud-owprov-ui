@@ -1,5 +1,5 @@
 import * as Yup from 'yup';
-import { testObjectName, testPhoneNumberArray, testRegex } from './formTests';
+import { testLocationName, testObjectName, testPhoneNumberArray, testRegex } from './formTests';
 import phoneNumberTest from 'utils/phoneNumber';
 
 export const DeviceRulesSchema = (t: (str: string) => string) =>
@@ -309,7 +309,7 @@ export const CreateLocationSchema = (t: (str: string) => string, needEntity = tr
   if (needEntity)
     return Yup.object()
       .shape({
-        name: Yup.string().required(t('form.required')).test('name_test', t('common.name_error'), testObjectName),
+        name: Yup.string().required(t('form.required')).test('name_test', t('locations.name_error'), testLocationName),
         description: Yup.string(),
         type: Yup.string().required(t('form.required')),
         timezone: Yup.string().required(t('form.required')),
@@ -331,7 +331,7 @@ export const CreateLocationSchema = (t: (str: string) => string, needEntity = tr
 
   return Yup.object()
     .shape({
-      name: Yup.string().required(t('form.required')).test('name_test', t('common.name_error'), testObjectName),
+      name: Yup.string().required(t('form.required')).test('name_test', t('locations.name_error'), testLocationName),
       description: Yup.string(),
       type: Yup.string().required(t('form.required')),
       timezone: Yup.string().required(t('form.required')),

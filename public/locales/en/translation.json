@@ -831,6 +831,7 @@
     "geocode": "Geo Code",
     "lat": "Latitude",
     "longitude": "Longitude",
+    "name_error": "Location name must be 128 characters or fewer",
     "one": "Location",
     "other": "Locations",
     "postal": "ZIP/Postal Code",
