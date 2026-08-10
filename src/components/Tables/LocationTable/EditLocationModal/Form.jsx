@@ -12,8 +12,8 @@ import SelectWithSearchField from 'components/FormFields/SelectWithSearchField';
 import StringField from 'components/FormFields/StringField';
 import COUNTRY_LIST from 'constants/countryList';
 import { CreateLocationSchema } from 'constants/formSchemas';
-import TIMEZONE_LIST, { getTimezoneOptions } from 'constants/timezoneList';
 import { LocationShape } from 'constants/propShapes';
+import { getTimezoneOptions } from 'constants/timezoneList';
 import { useGetEntities } from 'hooks/Network/Entity';
 import { useUpdateLocation } from 'hooks/Network/Locations';
 
