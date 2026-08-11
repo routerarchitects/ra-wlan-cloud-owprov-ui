@@ -32,7 +32,7 @@ const fileToString = async (file) =>
     reader.onerror = () => resolve(null);
   });
 
-const configurationSections = ['globals', 'unit', 'nat', 'metrics', 'services', 'radios', 'ethernet', 'interfaces', 'third-party'];
+const configurationSections = ['globals', 'unit', 'nat', 'metrics', 'services', 'radios', 'ethernet', 'interfaces', 'config-raw', 'third-party'];
 
 const transformComputedConfigToEditable = (config) => {
   const configurations = [];

@@ -71,6 +71,7 @@ const SECTION_DEFAULTS = {
   ethernet: 'Ethernet',
   interfaces: 'Interfaces',
   nat: 'Nat',
+  'config-raw': 'Config Raw',
   'third-party': 'Third Party',
 };
 
@@ -147,6 +148,7 @@ const ConfigurationCard = ({ id }) => {
               };
             }
             else if (conf === 'third-party') config.configuration = { 'third-party': try_parse(deviceConfig) };
+            else if (conf === 'config-raw') config.configuration = { 'config-raw': deviceConfig };
             else config.configuration[conf] = deviceConfig;
             return config;
           })

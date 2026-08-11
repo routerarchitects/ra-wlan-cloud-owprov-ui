@@ -29,6 +29,7 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
     (warnings.radios ?? []).length +
     (warnings.ethernet ?? []).length +
     (warnings.interfaces ?? []).length +
+    (warnings['config-raw'] ?? []).length +
     (warnings['third-party'] ?? []).length;
 
   return (
@@ -65,6 +66,7 @@ const ViewConfigWarningsModal = ({ warnings, activeConfigurations, isDisabled })
                   radios: activeConfigurations.includes('radios') ? warnings.radios : undefined,
                   ethernet: activeConfigurations.includes('ethernet') ? warnings.ethernet : undefined,
                   interfaces: activeConfigurations.includes('interfaces') ? warnings.interfaces : undefined,
+                  'config-raw': activeConfigurations.includes('config-raw') ? warnings['config-raw'] : undefined,
                   'third-party': activeConfigurations.includes('third-party') ? warnings['third-party'] : undefined,
                 },
                 null,
