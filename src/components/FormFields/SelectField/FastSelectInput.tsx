@@ -36,9 +36,11 @@ const FastSelectInput = (
   isDisabled={isDisabled}
   hidden={isHidden}
 >
-  <FormLabel ms="4px" fontSize="md" fontWeight="normal" _disabled={{ opacity: 0.8 }} hidden={isLabelHidden}>
-    {label} <ConfigurationFieldExplanation definitionKey={definitionKey} />
-  </FormLabel>
+  {label ? (
+    <FormLabel ms="4px" fontSize="md" fontWeight="normal" _disabled={{ opacity: 0.8 }} hidden={isLabelHidden}>
+      {label} <ConfigurationFieldExplanation definitionKey={definitionKey} />
+    </FormLabel>
+  ) : null}
   <Select
     value={value}
     onChange={onChange}

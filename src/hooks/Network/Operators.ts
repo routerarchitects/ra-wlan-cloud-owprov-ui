@@ -10,6 +10,7 @@ import { axiosProv } from 'utils/axiosInstances';
 
 export type CreateOperatorRequest = {
   deviceRules: DeviceRules;
+  entityId?: string;
   sourceIP: string[];
   registrationId: string;
   description?: string;
@@ -43,6 +44,15 @@ export type OperatorApiResponse = {
   notes: Note[];
   registrationId: string;
   sourceIP?: string[];
+};
+
+export type OperatorEntityApiResponse = {
+  entityId: string;
+  entityName: string;
+  id: string;
+  operatorId: string;
+  operatorName: string;
+  parentEntityId: string;
 };
 
 export const useGetOperatorCount = ({ enabled }: { enabled: boolean }) => {
@@ -184,7 +194,15 @@ export const useGetOperators = ({
   );
 };
 
-export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }) => {
+export const useGetOperator = ({
+  enabled = true,
+  id,
+  redirectOnError = false,
+}: {
+  enabled?: boolean;
+  id: string;
+  redirectOnError?: boolean;
+}) => {
   const { t } = useTranslation();
   const toast = useToast();
   const goToDefaultPage = useDefaultPage();
@@ -194,7 +212,7 @@ export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }
     {
       enabled,
       onError: (e: AxiosError) => {
-        if (!toast.isActive('opeator-fetching-error'))
+        if (!toast.isActive('operator-fetching-error'))
           toast({
             id: 'operator-fetching-error',
             title: t('common.error'),
@@ -207,7 +225,7 @@ export const useGetOperator = ({ enabled, id }: { enabled: boolean; id: string }
             isClosable: true,
             position: 'top-right',
           });
-        goToDefaultPage();
+        if (redirectOnError) goToDefaultPage();
       },
     },
   );
@@ -218,5 +236,38 @@ export const useCreateOperator = () =>
 
 export const useUpdateOperator = ({ id }: { id: string }) =>
   useMutation((newOperator: UpdateOperatorRequest) => axiosProv.put(`operator/${id}`, newOperator));
+
+export const useGetOperatorEntities = ({ enabled }: { enabled: boolean }) => {
+  const { t } = useTranslation();
+  const toast = useToast();
+
+  return useQuery(
+    ['get-operator-entities'],
+    () =>
+      axiosProv
+        .get('operatorEntity')
+        .then(({ data }: { data: { operatorEntities: OperatorEntityApiResponse[] } }) => data.operatorEntities),
+    {
+      enabled,
+      staleTime: 30000,
+      keepPreviousData: true,
+      onError: (e: AxiosError) => {
+        if (!toast.isActive('get-operator-entities-fetching-error'))
+          toast({
+            id: 'get-operator-entities-fetching-error',
+            title: t('common.error'),
+            description: t('crud.error_fetching_obj', {
+              obj: t('operator.other'),
+              e: e?.response?.data?.ErrorDescription,
+            }),
+            status: 'error',
+            duration: 5000,
+            isClosable: true,
+            position: 'top-right',
+          });
+      },
+    },
+  );
+};
 
 export const useDeleteOperator = ({ id }: { id: string }) => useMutation(() => axiosProv.delete(`operator/${id}`));

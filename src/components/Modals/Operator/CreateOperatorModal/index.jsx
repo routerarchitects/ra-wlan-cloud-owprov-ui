@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, ModalOverlay, ModalContent, ModalBody } from '@chakra-ui/react';
+import { Box, Modal, ModalOverlay, ModalContent, ModalBody } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import { useTranslation } from 'react-i18next';
 import CreateOperatorForm from './Form';
@@ -8,6 +8,8 @@ import CreateButton from 'components/Buttons/CreateButton';
 import SaveButton from 'components/Buttons/SaveButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
 import ModalHeader from 'components/Modals/ModalHeader';
+import { useAuth } from 'contexts/AuthProvider';
+import { useGetOperatorEntities } from 'hooks/Network/Operators';
 import useFormModal from 'hooks/useFormModal';
 import useFormRef from 'hooks/useFormRef';
 
@@ -17,14 +19,26 @@ const propTypes = {
 
 const CreateOperatorModal = ({ refresh }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { form, formRef } = useFormRef();
   const { isOpen, isConfirmOpen, onOpen, closeConfirm, closeModal, closeCancelAndForm } = useFormModal({
     isDirty: form?.dirty,
   });
+  const isRootUser = user?.userRole === 'root';
+  const operatorEntitiesQuery = useGetOperatorEntities({ enabled: !isRootUser });
+  const operatorEntities = operatorEntitiesQuery.data ?? [];
+  const hasOperatorCreateScope = isRootUser || operatorEntities.length > 0;
+  const shouldDisableCreate =
+    !isRootUser && operatorEntitiesQuery.isFetched && !operatorEntitiesQuery.isError && operatorEntities.length === 0;
 
   return (
     <>
-      <CreateButton onClick={onOpen} ml={2} />
+      <Box display="inline-block" ml={2}>
+        <CreateButton
+          onClick={onOpen}
+          isDisabled={shouldDisableCreate}
+        />
+      </Box>
       <Modal onClose={closeModal} isOpen={isOpen} size="xl">
         <ModalOverlay />
         <ModalContent maxWidth={{ sm: '600px', md: '700px', lg: '800px', xl: '50%' }}>
@@ -35,14 +49,24 @@ const CreateOperatorModal = ({ refresh }) => {
                 <SaveButton
                   onClick={form.submitForm}
                   isLoading={form.isSubmitting}
-                  isDisabled={!form.isValid || !form.dirty}
+                  isDisabled={!form.isValid || !form.dirty || (!hasOperatorCreateScope && !isRootUser)}
                 />
                 <CloseButton ml={2} onClick={closeModal} />
               </>
             }
           />
           <ModalBody>
-            <CreateOperatorForm isOpen={isOpen} onClose={closeCancelAndForm} refresh={refresh} formRef={formRef} />
+            <CreateOperatorForm
+              isOpen={isOpen}
+              onClose={closeCancelAndForm}
+              refresh={refresh}
+              formRef={formRef}
+              isRootUser={isRootUser}
+              operatorEntities={operatorEntities}
+              hasOperatorCreateScope={hasOperatorCreateScope}
+              isOperatorEntitiesLoading={operatorEntitiesQuery.isFetching}
+              isOperatorEntitiesError={operatorEntitiesQuery.isError}
+            />
           </ModalBody>
         </ModalContent>
         <ConfirmCloseAlert isOpen={isConfirmOpen} confirm={closeCancelAndForm} cancel={closeConfirm} />

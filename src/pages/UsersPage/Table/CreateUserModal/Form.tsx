@@ -11,6 +11,7 @@ import StringField from 'components/FormFields/StringField';
 import ToggleField from 'components/FormFields/ToggleField';
 import { testRegex } from 'constants/formTests';
 import { useAuth } from 'contexts/AuthProvider';
+import { useGetAllOperators } from 'hooks/Network/Operators';
 import { useCreateUser } from 'hooks/Network/Users';
 import useApiRequirements from 'hooks/useApiRequirements';
 
@@ -21,23 +22,50 @@ export type CreateUserFormValues = {
   currentPassword: string;
   note: string;
   userRole: string;
+  ownerOperatorId: string;
   emailValidation: boolean;
   changePassword: boolean;
 };
 
+export type CreatedUserResult = {
+  accessEntityId?: string;
+  email: string;
+  id: string;
+  userId: string;
+};
+
 type Props = {
   isOpen: boolean;
-  onClose: () => void;
+  onCreated: (createdUser: CreatedUserResult) => void;
   formRef: React.Ref<FormikProps<CreateUserFormValues>>;
 };
 
-const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
+const getCreatedUserId = (responseData: unknown) => {
+  if (typeof responseData !== 'object' || responseData === null) return '';
+
+  const typedResponse = responseData as { id?: string; userId?: string; user?: { id?: string; userId?: string } };
+
+  return typedResponse.userId ?? typedResponse.id ?? typedResponse.user?.userId ?? typedResponse.user?.id ?? '';
+};
+
+const CreateUserForm = ({ isOpen, onCreated, formRef }: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const { user } = useAuth();
   const [formKey, setFormKey] = useState(uuid());
   const createUser = useCreateUser();
+  const { data: operators, isFetching: isFetchingOperators } = useGetAllOperators();
   const { passwordPolicyLink, passwordPattern } = useApiRequirements();
+  const operatorOptions = React.useMemo(
+    () => [
+      { value: '', label: 'Select operator' },
+      ...((operators ?? []).map((operator) => ({
+        value: operator.id,
+        label: operator.name,
+      })) ?? []),
+    ],
+    [operators],
+  );
 
   const CreateUserSchema = Yup.object().shape({
     email: Yup.string().email(t('form.invalid_email')).required('Required'),
@@ -49,6 +77,11 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
       .default(''),
     note: Yup.string(),
     userRole: Yup.string(),
+    ownerOperatorId: Yup.string().when('userRole', {
+      is: (userRole: string) => userRole !== 'root',
+      then: Yup.string().required(t('form.required')),
+      otherwise: Yup.string(),
+    }),
   });
   const CreateUserNonRootSchema = Yup.object().shape({
     email: Yup.string().email(t('form.invalid_email')).required('Required'),
@@ -60,6 +93,7 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
       .default(''),
     note: Yup.string(),
     userRole: Yup.string(),
+    ownerOperatorId: Yup.string().required(t('form.required')),
   });
 
   const createParameters = ({
@@ -67,11 +101,14 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
     description,
     email,
     currentPassword,
+    ownerOperatorId,
     note,
     userRole,
     emailValidation,
     changePassword,
   }: CreateUserFormValues) => {
+    const entity = userRole !== 'root' && ownerOperatorId.length > 0 ? `operator:${ownerOperatorId}` : undefined;
+
     if (userRole === 'root') {
       return {
         name,
@@ -88,6 +125,7 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
       name,
       email,
       currentPassword,
+      entity,
       userRole,
       description: description.length > 0 ? description : undefined,
       notes: note.length > 0 ? [{ note }] : undefined,
@@ -118,6 +156,7 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
           currentPassword: '',
           note: '',
           userRole: defaultRole(),
+          ownerOperatorId: '',
           changePassword: true,
           emailValidation: true,
         } as CreateUserFormValues
@@ -125,21 +164,32 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
       validationSchema={user?.userRole === 'root' ? CreateUserSchema : CreateUserNonRootSchema}
       onSubmit={(formData, { setSubmitting, resetForm }) =>
         createUser.mutate(createParameters(formData), {
-          onSuccess: () => {
+          onSuccess: (response) => {
+            const createdUserId = getCreatedUserId(response.data);
+            if (createdUserId.length === 0) {
+              setSubmitting(false);
+              toast({
+                id: uuid(),
+                title: t('common.error'),
+                description: t('crud.error_create_obj', {
+                  obj: t('user.title'),
+                }),
+                status: 'error',
+                duration: 5000,
+                isClosable: true,
+                position: 'top-right',
+              });
+              return;
+            }
             setSubmitting(false);
             resetForm();
-            toast({
-              id: 'user-creation-success',
-              title: t('common.success'),
-              description: t('crud.success_create_obj', {
-                obj: t('user.title'),
-              }),
-              status: 'success',
-              duration: 5000,
-              isClosable: true,
-              position: 'top-right',
+            const selectedOperator = operators?.find((operator) => operator.id === formData.ownerOperatorId);
+            onCreated({
+              accessEntityId: selectedOperator?.entityId,
+              email: formData.email,
+              id: createdUserId,
+              userId: createdUserId,
             });
-            onClose();
           },
           onError: (e) => {
             setSubmitting(false);
@@ -173,6 +223,13 @@ const CreateUserForm = ({ isOpen, onClose, formRef }: Props) => {
               { value: 'root', label: 'Root' },
               { value: 'system', label: 'System' },
             ]}
+            isRequired
+          />
+          <SelectField
+            name="ownerOperatorId"
+            label={t('operator.one')}
+            options={operatorOptions}
+            isDisabled={isFetchingOperators}
             isRequired
           />
           <StringField name="currentPassword" label={t('user.password')} isRequired hideButton />

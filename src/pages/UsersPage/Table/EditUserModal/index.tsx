@@ -9,6 +9,8 @@ import UpdateUserForm from './Form';
 import SaveButton from 'components/Buttons/SaveButton';
 import ToggleEditButton from 'components/Buttons/ToggleEditButton';
 import ConfirmCloseAlert from 'components/Modals/Actions/ConfirmCloseAlert';
+import { useAuth } from 'contexts/AuthProvider';
+import { useGetOperator } from 'hooks/Network/Operators';
 import { useGetUser, User } from 'hooks/Network/Users';
 import useFormRef from 'hooks/useFormRef';
 
@@ -20,12 +22,21 @@ type Props = {
 
 const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
   const { t } = useTranslation();
+  const { user: authUser } = useAuth();
   const [editing, setEditing] = useBoolean();
+  const [activeTab, setActiveTab] = React.useState(0);
   const queryClient = useQueryClient();
   const { isOpen: showConfirm, onOpen: openConfirm, onClose: closeConfirm } = useDisclosure();
   const { form, formRef } = useFormRef<User>();
   const canFetchUser = userId !== '' && isOpen;
   const { data: user, isFetching, refetch } = useGetUser({ id: userId ?? '', enabled: canFetchUser });
+  const canManageAccess = authUser?.userRole === 'root' || authUser?.userRole === 'admin';
+  const ownerOperatorId = user?.owner?.startsWith('operator:') ? user.owner.split(':')[1] : '';
+  const { data: ownerOperator, isLoading: isLoadingOwnerOperator } = useGetOperator({
+    enabled: canManageAccess && ownerOperatorId.length > 0 && activeTab === 2,
+    id: ownerOperatorId,
+  });
+  const initialAccessEntityId = ownerOperatorId.length > 0 ? ownerOperator?.entityId : user?.owner;
 
   const closeModal = () => (form.dirty ? openConfirm() : onClose());
 
@@ -41,6 +52,7 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
 
   useEffect(() => {
     if (isOpen) setEditing.off();
+    if (isOpen) setActiveTab(0);
   }, [isOpen]);
 
   return (
@@ -86,7 +98,18 @@ const EditUserModal = ({ isOpen, onClose, userId }: Props) => {
         }
       >
         {!isFetching && user ? (
-          <UpdateUserForm editing={editing} selectedUser={user} isOpen={isOpen} onClose={onClose} formRef={formRef} />
+          <UpdateUserForm
+            editing={editing}
+            canManageAccess={canManageAccess}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            selectedUser={user}
+            initialAccessEntityId={initialAccessEntityId}
+            isLoadingOwnerOperator={isLoadingOwnerOperator}
+            isOpen={isOpen}
+            onClose={onClose}
+            formRef={formRef}
+          />
         ) : (
           <Center>
             <Spinner />

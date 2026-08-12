@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { ExternalLinkIcon } from '@chakra-ui/icons';
-import { Box, Flex, Link, useToast, Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid } from '@chakra-ui/react';
+import { Box, Flex, Link, useToast, Tabs, TabList, TabPanels, TabPanel, Tab, SimpleGrid, Center, Spinner } from '@chakra-ui/react';
 import axios from 'axios';
 import { Formik, Form, FormikProps } from 'formik';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuid } from 'uuid';
 import * as Yup from 'yup';
+import AssignAccessForm from '../CreateUserModal/AssignAccessForm';
 import { NotesField } from 'components/FormFields/NotesField';
 import SelectField from 'components/FormFields/SelectField';
 import StringField from 'components/FormFields/StringField';
@@ -16,13 +17,29 @@ import useApiRequirements from 'hooks/useApiRequirements';
 
 type Props = {
   editing: boolean;
+  canManageAccess: boolean;
+  activeTab: number;
+  setActiveTab: (nextTab: number) => void;
   isOpen: boolean;
   onClose: () => void;
   selectedUser: User;
+  initialAccessEntityId?: string;
+  isLoadingOwnerOperator?: boolean;
   formRef: React.Ref<FormikProps<User>>;
 };
 
-const UpdateUserForm = ({ editing, isOpen, onClose, selectedUser, formRef }: Props) => {
+const UpdateUserForm = ({
+  editing,
+  canManageAccess,
+  activeTab,
+  setActiveTab,
+  isOpen,
+  onClose,
+  selectedUser,
+  initialAccessEntityId,
+  isLoadingOwnerOperator,
+  formRef,
+}: Props) => {
   const { t } = useTranslation();
   const toast = useToast();
   const { user } = useAuth();
@@ -60,9 +77,31 @@ const UpdateUserForm = ({ editing, isOpen, onClose, selectedUser, formRef }: Pro
     return false;
   };
 
+  const handleAccessAssignmentComplete = () => {
+    toast({
+      id: 'user-access-assigned-success',
+      title: t('common.success'),
+      description: 'Management access assigned successfully',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+      position: 'top-right',
+    });
+    setActiveTab(0);
+  };
+
   useEffect(() => {
     setFormKey(uuid());
   }, [isOpen, editing]);
+
+  const accessPolicyContext = {
+    heading: 'Access Policy',
+    description: 'Configure the management policy for {{email}}.',
+    pendingTitle: 'Access policy update pending',
+    backLabel: 'Back',
+    submitLabel: 'Assign Access',
+    retryLabel: 'Retry Assignment',
+  };
 
   return (
     <Formik
@@ -116,10 +155,11 @@ const UpdateUserForm = ({ editing, isOpen, onClose, selectedUser, formRef }: Pro
       }
     >
       <>
-        <Tabs variant="enclosed">
+        <Tabs isLazy variant="enclosed" index={activeTab} onChange={setActiveTab}>
           <TabList>
             <Tab>{t('common.main')}</Tab>
             <Tab>{t('common.notes')}</Tab>
+            {canManageAccess ? <Tab>{t('login.access_policy')}</Tab> : null}
           </TabList>
           <TabPanels>
             <TabPanel>
@@ -155,6 +195,26 @@ const UpdateUserForm = ({ editing, isOpen, onClose, selectedUser, formRef }: Pro
             <TabPanel>
               <NotesField isDisabled={!editing} />
             </TabPanel>
+            {canManageAccess ? (
+              <TabPanel>
+                {isLoadingOwnerOperator ? (
+                  <Center py={8}>
+                    <Spinner size="lg" />
+                  </Center>
+                ) : (
+                  <AssignAccessForm
+                    onBack={() => setActiveTab(0)}
+                    onComplete={handleAccessAssignmentComplete}
+                    initialEntityId={initialAccessEntityId}
+                    user={{
+                      email: selectedUser.email,
+                      userId: selectedUser.id,
+                    }}
+                    context={accessPolicyContext}
+                  />
+                )}
+              </TabPanel>
+            ) : null}
           </TabPanels>
         </Tabs>
         <Flex justifyContent="center" alignItems="right" maxW="100%" mt={4} mb={6}>

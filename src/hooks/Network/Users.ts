@@ -264,11 +264,22 @@ const createUser = async (newUser: {
   description?: string;
   email: string;
   currentPassword: string;
+  entity?: string;
   notes?: { note: string }[];
   userRole: string;
   emailValidation: boolean;
   changePassword: boolean;
-}) => axiosSec.post(`user/0${newUser.emailValidation ? '?email_verification=true' : ''}`, newUser);
+}) => {
+  const { emailValidation, entity, ...payload } = newUser;
+  const searchParams = new URLSearchParams();
+
+  searchParams.set('email_verification', emailValidation ? 'true' : 'false');
+  if (entity) searchParams.set('entity', entity);
+
+  const queryString = searchParams.toString();
+
+  return axiosSec.post(`user/0${queryString ? `?${queryString}` : ''}`, payload);
+};
 export const useCreateUser = () => {
   const queryClient = useQueryClient();
 
