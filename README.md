@@ -14,7 +14,7 @@ OWPROV-UI is the web management interface for the OpenWiFi Provisioning Service 
 To run the interface, you can set it up locally for [development](#development) or compile it for [production](#production).
 
 ## OpenWiFi / CloudSDK Foundation
-Based on TIP cloudSDK.
+OWPROV-UI builds on the Telecom Infra Project OpenWiFi CloudSDK foundation and is adapted for Mango Cloud provisioning workflows.
 
 ## Role in Mango Cloud
 This service is part of [Mango Cloud](https://www.mangowifi.cloud/), Router Architects’ open-source platform for managed Wi-Fi and connectivity operations.
