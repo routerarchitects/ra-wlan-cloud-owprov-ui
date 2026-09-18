@@ -7,9 +7,14 @@
 # OpenWiFi Provisioning UI (OWPROV-UI)
 
 ## Overview
-The OpenWiFi Provisioning UI (OWPROV-UI) is the official web management interface for the Provisioning Service (`owprov`) within the Telecom Infra Project (TIP) OpenWiFi CloudSDK (OWSDK) ecosystem.
+**Provisioning operator console for Mango Cloud, Router Architects’ open-source OpenLAN/OpenWiFi managed connectivity platform.**
 
-OWPROV-UI provides a comprehensive React-based dashboard for network administrators to define entity hierarchies, assign venues, configure device policies, manage templates, and monitor provisioning states. To run the interface, you can set it up locally for [development](#development) or compile it for [production](#production).
+OWPROV-UI is the web management interface for the OpenWiFi Provisioning Service (owprov), integrated into Mango Cloud. It provides a React-based dashboard for network administrators to manage entity hierarchies, venues, devices, configuration policies, templates, and provisioning state.
+
+To run the interface, you can set it up locally for [development](#development) or compile it for [production](#production).
+
+## OpenWiFi / CloudSDK Foundation
+OWPROV-UI builds on the Telecom Infra Project OpenWiFi CloudSDK foundation and is adapted for Mango Cloud provisioning workflows.
 
 ## Role in Mango Cloud
 This service is part of [Mango Cloud](https://www.mangowifi.cloud/), Router Architects’ open-source platform for managed Wi-Fi and connectivity operations.
