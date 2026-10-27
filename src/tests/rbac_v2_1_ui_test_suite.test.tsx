@@ -250,6 +250,7 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
     expect(PRODUCTION_POLICY_RESOURCES).toContain('operator');
     expect(PRODUCTION_POLICY_RESOURCES).toContain('subscriber');
     expect(PRODUCTION_POLICY_RESOURCES).toContain('contact');
+    expect(PRODUCTION_POLICY_RESOURCES).toContain('managementRole');
   });
 
   it('7. VenueContactsCard lastEntity selection resolves immediate parent entity closest to venue', () => {

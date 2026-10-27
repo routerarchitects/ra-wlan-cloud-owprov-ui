@@ -50,6 +50,7 @@ export const RESOURCES = [
   'subscriber',
   'contact',
   'location',
+  'managementRole',
 ];
 
 const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
@@ -340,7 +341,7 @@ const CreatePolicyModal = () => {
                     <React.Fragment key={resource}>
                       <GridItem>
                         <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
-                          {resource === 'managementRole' ? 'roles & policies' : resource}
+                          {resource === 'managementRole' ? 'Management Role' : resource}
                         </Text>
                       </GridItem>
                       <GridItem>
