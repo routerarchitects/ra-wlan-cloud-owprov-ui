@@ -22,6 +22,7 @@ describe('Policy Resource Picker Alignment (Section 5.1)', () => {
     expect(PRODUCTION_RESOURCES).toContain('subscriber');
     expect(PRODUCTION_RESOURCES).toContain('contact');
     expect(PRODUCTION_RESOURCES).toContain('managementRole');
+    expect(PRODUCTION_RESOURCES).toContain('deviceCommand');
     expect(PRODUCTION_RESOURCES).not.toContain('device');
   });
 });

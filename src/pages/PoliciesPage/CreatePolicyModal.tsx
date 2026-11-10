@@ -51,9 +51,23 @@ export const RESOURCES = [
   'contact',
   'location',
   'managementRole',
+  'deviceCommand',
 ];
 
-const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export const DEVICE_COMMAND_ACTIONS = [
+  'REBOOT',
+  'BLINK',
+  'WIFI_SCAN',
+  'TELEMETRY',
+  'UPGRADE',
+  'FACTORY_RESET',
+  'TRACE',
+  'RTTY',
+  'SCRIPT',
+  'RE_ENROLL',
+  'FULL',
+];
 
 type ResourcePermissionInputProps = {
   resource: string;
@@ -68,6 +82,7 @@ const ResourcePermissionInput = ({
 }: ResourcePermissionInputProps) => {
   const panelBg = useColorModeValue('white', 'gray.700');
   const panelBorder = useColorModeValue('gray.300', 'gray.600');
+  const availableActions = resource === 'deviceCommand' ? DEVICE_COMMAND_ACTIONS : ACTIONS;
 
   const removeAction = (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,7 +130,7 @@ const ResourcePermissionInput = ({
         </Flex>
       </MenuButton>
       <MenuList minW="180px" zIndex={1400} p={1}>
-        {ACTIONS.map((action) => {
+        {availableActions.map((action) => {
           const isSelected = selectedActions.includes(action);
           return (
             <MenuItem
@@ -154,7 +169,7 @@ const CreatePolicyModal = () => {
 
   // Custom resource states: maps resource to array of selected actions
   const [customAccess, setCustomAccess] = useState<Record<string, string[]>>(
-    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}),
+    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }), {}),
   );
 
   const toggleAction = (resource: string, action: string) => {
@@ -169,19 +184,30 @@ const CreatePolicyModal = () => {
       }
 
       let updated: string[];
+      const subActions =
+        resource === 'deviceCommand'
+          ? [
+              'REBOOT',
+              'BLINK',
+              'WIFI_SCAN',
+              'TELEMETRY',
+              'UPGRADE',
+              'FACTORY_RESET',
+              'TRACE',
+              'RTTY',
+              'SCRIPT',
+              'RE_ENROLL',
+            ]
+          : ['READ', 'CREATE', 'MODIFY', 'DELETE'];
+
       if (current.includes('FULL')) {
-        const subActions = ['READ', 'CREATE', 'MODIFY', 'DELETE'];
         updated = subActions.filter((a) => a !== action);
       } else if (current.includes(action)) {
         updated = current.filter((a) => a !== action);
       } else {
         updated = [...current, action];
-        if (
-          updated.includes('READ') &&
-          updated.includes('CREATE') &&
-          updated.includes('MODIFY') &&
-          updated.includes('DELETE')
-        ) {
+        const allSelected = subActions.every((a) => updated.includes(a));
+        if (allSelected) {
           updated = ['FULL'];
         }
       }
@@ -217,7 +243,7 @@ const CreatePolicyModal = () => {
     } else if (preset === 'read') {
       entries = [
         {
-          resources: RESOURCES,
+          resources: RESOURCES.filter((r) => r !== 'deviceCommand'),
           access: ['READ'],
         },
       ];
@@ -278,7 +304,12 @@ const CreatePolicyModal = () => {
     setName('');
     setDescription('');
     setPreset('full');
-    setCustomAccess(RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}));
+    setCustomAccess(
+      RESOURCES.reduce(
+        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }),
+        {},
+      ),
+    );
   };
 
   return (
@@ -341,7 +372,11 @@ const CreatePolicyModal = () => {
                     <React.Fragment key={resource}>
                       <GridItem>
                         <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
-                          {resource === 'managementRole' ? 'Management Role' : resource}
+                          {resource === 'managementRole'
+                            ? 'Management Role'
+                            : resource === 'deviceCommand'
+                            ? 'Device Commands'
+                            : resource}
                         </Text>
                       </GridItem>
                       <GridItem>
