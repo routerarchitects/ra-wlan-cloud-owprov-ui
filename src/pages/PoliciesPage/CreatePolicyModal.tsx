@@ -57,6 +57,7 @@ export const RESOURCES = [
 export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
 export const DEVICE_COMMAND_ACTIONS = [
   'REBOOT',
+  'CONFIGURE',
   'BLINK',
   'WIFI_SCAN',
   'TELEMETRY',
@@ -186,18 +187,7 @@ const CreatePolicyModal = () => {
       let updated: string[];
       const subActions =
         resource === 'deviceCommand'
-          ? [
-              'REBOOT',
-              'BLINK',
-              'WIFI_SCAN',
-              'TELEMETRY',
-              'UPGRADE',
-              'FACTORY_RESET',
-              'TRACE',
-              'RTTY',
-              'SCRIPT',
-              'RE_ENROLL',
-            ]
+          ? DEVICE_COMMAND_ACTIONS.filter((a) => a !== 'FULL')
           : ['READ', 'CREATE', 'MODIFY', 'DELETE'];
 
       if (current.includes('FULL')) {

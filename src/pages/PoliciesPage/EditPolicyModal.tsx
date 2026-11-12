@@ -56,6 +56,7 @@ export const RESOURCES = [
 export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
 export const DEVICE_COMMAND_ACTIONS = [
   'REBOOT',
+  'CONFIGURE',
   'BLINK',
   'WIFI_SCAN',
   'TELEMETRY',

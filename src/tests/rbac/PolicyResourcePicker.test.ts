@@ -37,6 +37,7 @@ describe('Policy Resource Picker Alignment (Section 5.1)', () => {
   it('defines domain-specific deviceCommand actions and excludes CRUD verbs', () => {
     expect(CREATE_COMMAND_ACTIONS).toEqual(EDIT_COMMAND_ACTIONS);
     expect(CREATE_COMMAND_ACTIONS).toContain('REBOOT');
+    expect(CREATE_COMMAND_ACTIONS).toContain('CONFIGURE');
     expect(CREATE_COMMAND_ACTIONS).toContain('WIFI_SCAN');
     expect(CREATE_COMMAND_ACTIONS).toContain('FULL');
     ['READ', 'CREATE', 'MODIFY', 'DELETE'].forEach((crudAction) => {
