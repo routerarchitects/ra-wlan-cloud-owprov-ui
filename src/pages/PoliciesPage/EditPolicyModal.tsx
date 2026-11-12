@@ -50,9 +50,33 @@ export const RESOURCES = [
   'contact',
   'location',
   'managementRole',
+  'deviceCommand',
 ];
 
-const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export const DEVICE_COMMAND_ACTIONS = [
+  'REBOOT',
+  'CONFIGURE',
+  'BLINK',
+  'WIFI_SCAN',
+  'TELEMETRY',
+  'UPGRADE',
+  'FACTORY_RESET',
+  'TRACE',
+  'RTTY',
+  'SCRIPT',
+  'RE_ENROLL',
+  'FULL',
+];
+
+const getValidActionsForResource = (resource: string) =>
+  resource === 'deviceCommand' ? DEVICE_COMMAND_ACTIONS : ACTIONS;
+
+const filterValidActionsForResource = (resource: string, actions: string[]) => {
+  const allowed = getValidActionsForResource(resource);
+  const filtered = actions.filter((action) => allowed.includes(action));
+  return filtered.includes('FULL') ? ['FULL'] : Array.from(new Set(filtered));
+};
 
 type ResourcePermissionInputProps = {
   resource: string;
@@ -69,6 +93,7 @@ const ResourcePermissionInput = ({
 }: ResourcePermissionInputProps) => {
   const panelBg = useColorModeValue('white', 'gray.700');
   const panelBorder = useColorModeValue('gray.300', 'gray.600');
+  const availableActions = getValidActionsForResource(resource);
 
   const removeAction = (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -121,7 +146,7 @@ const ResourcePermissionInput = ({
       </MenuButton>
       {!isDisabled && (
         <MenuList minW="180px" zIndex={1400} p={1}>
-          {ACTIONS.map((action) => {
+          {availableActions.map((action) => {
             const isSelected = selectedActions.includes(action);
             return (
               <MenuItem
@@ -168,7 +193,7 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
 
   // Custom resource states: maps resource to array of selected actions
   const [customAccess, setCustomAccess] = useState<Record<string, string[]>>(
-    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}),
+    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }), {}),
   );
 
   // Sync state with selected policy
@@ -194,30 +219,40 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
         if (isFull) {
           return {
             detectedPreset: 'full',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'] }), {}),
+            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['FULL'] }), {} as Record<string, string[]>),
           };
         }
 
         const isRead =
           entries.length === 1 &&
           entries[0].access.includes('READ') &&
-          entries[0].resources.length === RESOURCES.length;
+          entries[0].resources.length === RESOURCES.filter((r) => r !== 'deviceCommand').length;
         if (isRead) {
           return {
             detectedPreset: 'read',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}),
+            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }), {}),
           };
         }
 
         // Custom mapping
         const mapping = RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>);
+        const addResourceActions = (resource: string, accessList: string[]) => {
+          const validAccess = filterValidActionsForResource(resource, accessList);
+          if (validAccess.length === 0) return;
+          mapping[resource] = filterValidActionsForResource(resource, [
+            ...(mapping[resource] || []),
+            ...validAccess,
+          ]);
+        };
         entries.forEach((entry) => {
           const accessList = entry.access || [];
           const cleanAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
           entry.resources.forEach((res: string) => {
             const key = res === 'device' ? 'inventory' : res;
-            if (mapping[key]) {
-              mapping[key] = Array.from(new Set([...(mapping[key] || []), ...cleanAccess]));
+            if (key === '*') {
+              RESOURCES.forEach((r) => addResourceActions(r, cleanAccess));
+            } else if (mapping[key]) {
+              addResourceActions(key, cleanAccess);
             }
           });
         });
@@ -243,19 +278,16 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       }
 
       let updated: string[];
+      const subActions = getValidActionsForResource(resource).filter((a) => a !== 'FULL');
+
       if (current.includes('FULL')) {
-        const subActions = ['READ', 'CREATE', 'MODIFY', 'DELETE'];
         updated = subActions.filter((a) => a !== action);
       } else if (current.includes(action)) {
         updated = current.filter((a) => a !== action);
       } else {
         updated = [...current, action];
-        if (
-          updated.includes('READ') &&
-          updated.includes('CREATE') &&
-          updated.includes('MODIFY') &&
-          updated.includes('DELETE')
-        ) {
+        const allSelected = subActions.every((a) => updated.includes(a));
+        if (allSelected) {
           updated = ['FULL'];
         }
       }
@@ -291,7 +323,7 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
     } else if (preset === 'read') {
       entries = [
         {
-          resources: RESOURCES,
+          resources: RESOURCES.filter((r) => r !== 'deviceCommand'),
           access: ['READ'],
         },
       ];
@@ -299,7 +331,8 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       const accessGroups: Record<string, string[]> = {};
       Object.entries(customAccess).forEach(([resource, accessList]) => {
         if (accessList && accessList.length > 0) {
-          const finalAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
+          const finalAccess = filterValidActionsForResource(resource, accessList);
+          if (finalAccess.length === 0) return;
           const key = [...finalAccess].sort().join(',');
           if (!accessGroups[key]) {
             accessGroups[key] = [];
@@ -416,7 +449,11 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
                   <React.Fragment key={resource}>
                     <GridItem>
                       <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
-                        {resource === 'managementRole' ? 'Management Role' : resource}
+                        {resource === 'managementRole'
+                          ? 'Management Role'
+                          : resource === 'deviceCommand'
+                          ? 'Device Commands'
+                          : resource}
                       </Text>
                     </GridItem>
                     <GridItem>
