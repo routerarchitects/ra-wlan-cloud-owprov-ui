@@ -68,6 +68,15 @@ export const DEVICE_COMMAND_ACTIONS = [
   'FULL',
 ];
 
+const getValidActionsForResource = (resource: string) =>
+  resource === 'deviceCommand' ? DEVICE_COMMAND_ACTIONS : ACTIONS;
+
+const filterValidActionsForResource = (resource: string, actions: string[]) => {
+  const allowed = getValidActionsForResource(resource);
+  const filtered = actions.filter((action) => allowed.includes(action));
+  return filtered.includes('FULL') ? ['FULL'] : Array.from(new Set(filtered));
+};
+
 type ResourcePermissionInputProps = {
   resource: string;
   selectedActions: string[];
@@ -83,7 +92,7 @@ const ResourcePermissionInput = ({
 }: ResourcePermissionInputProps) => {
   const panelBg = useColorModeValue('white', 'gray.700');
   const panelBorder = useColorModeValue('gray.300', 'gray.600');
-  const availableActions = resource === 'deviceCommand' ? DEVICE_COMMAND_ACTIONS : ACTIONS;
+  const availableActions = getValidActionsForResource(resource);
 
   const removeAction = (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -209,7 +218,7 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
         if (isFull) {
           return {
             detectedPreset: 'full',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'] }), {}),
+            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['FULL'] }), {} as Record<string, string[]>),
           };
         }
 
@@ -226,17 +235,23 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
 
         // Custom mapping
         const mapping = RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>);
+        const addResourceActions = (resource: string, accessList: string[]) => {
+          const validAccess = filterValidActionsForResource(resource, accessList);
+          if (validAccess.length === 0) return;
+          mapping[resource] = filterValidActionsForResource(resource, [
+            ...(mapping[resource] || []),
+            ...validAccess,
+          ]);
+        };
         entries.forEach((entry) => {
           const accessList = entry.access || [];
           const cleanAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
           entry.resources.forEach((res: string) => {
             const key = res === 'device' ? 'inventory' : res;
             if (key === '*') {
-              RESOURCES.forEach((r) => {
-                mapping[r] = Array.from(new Set([...(mapping[r] || []), ...cleanAccess]));
-              });
+              RESOURCES.forEach((r) => addResourceActions(r, cleanAccess));
             } else if (mapping[key]) {
-              mapping[key] = Array.from(new Set([...(mapping[key] || []), ...cleanAccess]));
+              addResourceActions(key, cleanAccess);
             }
           });
         });
@@ -262,21 +277,7 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       }
 
       let updated: string[];
-      const subActions =
-        resource === 'deviceCommand'
-          ? [
-              'REBOOT',
-              'BLINK',
-              'WIFI_SCAN',
-              'TELEMETRY',
-              'UPGRADE',
-              'FACTORY_RESET',
-              'TRACE',
-              'RTTY',
-              'SCRIPT',
-              'RE_ENROLL',
-            ]
-          : ['READ', 'CREATE', 'MODIFY', 'DELETE'];
+      const subActions = getValidActionsForResource(resource).filter((a) => a !== 'FULL');
 
       if (current.includes('FULL')) {
         updated = subActions.filter((a) => a !== action);
@@ -329,7 +330,8 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       const accessGroups: Record<string, string[]> = {};
       Object.entries(customAccess).forEach(([resource, accessList]) => {
         if (accessList && accessList.length > 0) {
-          const finalAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
+          const finalAccess = filterValidActionsForResource(resource, accessList);
+          if (finalAccess.length === 0) return;
           const key = [...finalAccess].sort().join(',');
           if (!accessGroups[key]) {
             accessGroups[key] = [];
