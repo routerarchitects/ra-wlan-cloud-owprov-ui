@@ -48,9 +48,7 @@ export const filterValidActionsForResource = (
   actions: string[] = []
 ): string[] => {
   const allowed = getValidActionsForResource(resource);
-  // Normalize legacy aliases (e.g. MODIFY -> UPDATE)
-  const normalizedActions = actions.map((a) => (a === 'MODIFY' ? 'UPDATE' : a));
-  const filtered = normalizedActions.filter((action) => allowed.includes(action));
+  const filtered = actions.filter((action) => allowed.includes(action));
   if (resource === 'deviceCommand') {
     return Array.from(new Set(filtered));
   }

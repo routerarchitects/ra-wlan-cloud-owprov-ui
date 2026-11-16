@@ -272,7 +272,7 @@ const CreatePolicyModal = () => {
 
   return (
     <>
-      <Button colorScheme="blue" leftIcon={<Plus size={18} />} onClick={onOpen}>
+      <Button colorScheme="blue" leftIcon={<Plus size={18} />} onClick={() => { resetForm(); onOpen(); }}>
         {t('crud.create')}
       </Button>
 

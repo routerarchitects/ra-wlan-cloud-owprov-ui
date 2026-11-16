@@ -359,7 +359,7 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
                   onClick={() =>
                     setCustomAccess(
                       RESOURCES.reduce(
-                        (acc, r) => ({ ...acc, [r]: ['FULL'] }),
+                        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['FULL'] }),
                         {} as Record<string, string[]>
                       )
                     )

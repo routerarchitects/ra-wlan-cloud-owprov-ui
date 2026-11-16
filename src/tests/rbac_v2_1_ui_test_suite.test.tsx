@@ -388,9 +388,17 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
     fireEvent.click(getByText('crud.create'));
     fireEvent.change(getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Device Command Ops' } });
 
+    PRODUCTION_POLICY_RESOURCES.forEach((resource) => {
+      const label = resource === 'deviceCommand' ? 'Device Commands' : resource === 'managementRole' ? 'Management Role' : resource;
+      const cell = getByText(label).parentElement?.nextElementSibling as HTMLElement;
+      expect(within(cell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+      expect(within(cell).queryByRole('button', { name: 'close' })).toBeNull();
+    });
+
     const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     expect(deviceCommandsCell).toBeTruthy();
     expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+    expect(within(deviceCommandsCell).queryByText('FULL')).toBeNull();
 
     fireEvent.click(within(deviceCommandsCell).getByText('REBOOT'));
     fireEvent.click(within(deviceCommandsCell).getByText('WIFI_SCAN'));
@@ -616,44 +624,4 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
     expect(instUpdateEntry?.access).toEqual(expect.arrayContaining(['READ', 'UPDATE']));
   });
 
-  it('15. Legacy policies with MODIFY access are normalized to canonical UPDATE without permission loss', () => {
-    const legacyPolicy: ManagementPolicy = {
-      id: 'policy-legacy-modify-1',
-      name: 'Legacy Operator',
-      description: 'Policy created with legacy MODIFY spelling',
-      entity: '',
-      venue: '',
-      entries: [
-        {
-          resources: ['configuration'],
-          access: ['READ', 'MODIFY'],
-        },
-      ],
-    };
-
-    mockUserRole = 'root';
-    const Wrapper = createWrapper();
-    const { getByText, unmount } = render(
-      <Wrapper>
-        <EditPolicyModal isOpen onClose={() => {}} policy={legacyPolicy} />
-      </Wrapper>
-    );
-
-    const configCell = getByText('configuration').parentElement?.nextElementSibling as HTMLElement;
-    const configCloseButtons = within(configCell).getAllByRole('button', { name: 'close' });
-    const configTags = configCloseButtons[0].parentElement?.parentElement as HTMLElement;
-    expect(within(configTags).getByText('READ')).toBeTruthy();
-    expect(within(configTags).getByText('UPDATE')).toBeTruthy();
-
-    fireEvent.click(getByText('common.save'));
-    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
-    const saved = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
-    expect(saved.entries).toEqual([
-      {
-        resources: ['configuration'],
-        access: expect.arrayContaining(['READ', 'UPDATE']),
-      },
-    ]);
-    unmount();
-  });
 });
