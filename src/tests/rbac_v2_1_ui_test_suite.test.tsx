@@ -402,18 +402,20 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     fireEvent.click(within(deviceCommandsCell).getByText('REBOOT'));
     fireEvent.click(within(deviceCommandsCell).getByText('WIFI_SCAN'));
+    fireEvent.click(within(deviceCommandsCell).getByText('EVENTQUEUE'));
 
     const closeButtons = within(deviceCommandsCell).getAllByRole('button', { name: 'close' });
     const tagsContainer = closeButtons[0].parentElement?.parentElement as HTMLElement;
     expect(within(tagsContainer).getByText('REBOOT')).toBeTruthy();
     expect(within(tagsContainer).getByText('WIFI_SCAN')).toBeTruthy();
+    expect(within(tagsContainer).getByText('EVENTQUEUE')).toBeTruthy();
 
     fireEvent.click(getByText('common.save'));
     expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
     const payload = mockCreatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
     expect(payload.entries).toEqual(
       expect.arrayContaining([
-        { resources: ['deviceCommand'], access: ['REBOOT', 'WIFI_SCAN'] },
+        { resources: ['deviceCommand'], access: ['EVENTQUEUE', 'REBOOT', 'WIFI_SCAN'] },
       ])
     );
   });

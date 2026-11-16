@@ -25,6 +25,7 @@ export const DEVICE_COMMAND_ACTIONS = [
   'RTTY',
   'SCRIPT',
   'RE_ENROLL',
+  'EVENTQUEUE',
 ];
 
 export const RESOURCE_ACTIONS: Record<string, string[]> = {

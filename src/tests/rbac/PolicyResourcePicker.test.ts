@@ -39,6 +39,7 @@ describe('Policy Resource Picker Alignment (Section 5.1)', () => {
     expect(CREATE_COMMAND_ACTIONS).toContain('REBOOT');
     expect(CREATE_COMMAND_ACTIONS).toContain('CONFIGURE');
     expect(CREATE_COMMAND_ACTIONS).toContain('WIFI_SCAN');
+    expect(CREATE_COMMAND_ACTIONS).toContain('EVENTQUEUE');
     expect(CREATE_COMMAND_ACTIONS).not.toContain('FULL');
     ['READ', 'CREATE', 'UPDATE', 'MODIFY', 'DELETE', 'FULL'].forEach((disallowedAction) => {
       expect(CREATE_COMMAND_ACTIONS).not.toContain(disallowedAction);
