@@ -230,9 +230,11 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
         updated = current.filter((a) => a !== action);
       } else {
         updated = [...current, action];
-        const allSelected = subActions.every((a) => updated.includes(a));
-        if (allSelected) {
-          updated = ['FULL'];
+        if (resource !== 'deviceCommand') {
+          const allSelected = subActions.every((a) => updated.includes(a));
+          if (allSelected) {
+            updated = ['FULL'];
+          }
         }
       }
 

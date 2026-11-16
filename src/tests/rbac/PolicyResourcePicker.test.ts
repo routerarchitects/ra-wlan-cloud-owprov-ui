@@ -34,14 +34,14 @@ describe('Policy Resource Picker Alignment (Section 5.1)', () => {
     expect(EDIT_RESOURCES).toEqual(PRODUCTION_RESOURCES);
   });
 
-  it('defines domain-specific deviceCommand actions and excludes CRUD verbs', () => {
+  it('defines domain-specific deviceCommand actions and excludes CRUD verbs and FULL', () => {
     expect(CREATE_COMMAND_ACTIONS).toEqual(EDIT_COMMAND_ACTIONS);
     expect(CREATE_COMMAND_ACTIONS).toContain('REBOOT');
     expect(CREATE_COMMAND_ACTIONS).toContain('CONFIGURE');
     expect(CREATE_COMMAND_ACTIONS).toContain('WIFI_SCAN');
-    expect(CREATE_COMMAND_ACTIONS).toContain('FULL');
-    ['READ', 'CREATE', 'MODIFY', 'DELETE'].forEach((crudAction) => {
-      expect(CREATE_COMMAND_ACTIONS).not.toContain(crudAction);
+    expect(CREATE_COMMAND_ACTIONS).not.toContain('FULL');
+    ['READ', 'CREATE', 'UPDATE', 'MODIFY', 'DELETE', 'FULL'].forEach((disallowedAction) => {
+      expect(CREATE_COMMAND_ACTIONS).not.toContain(disallowedAction);
     });
   });
 });

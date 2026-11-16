@@ -11,7 +11,7 @@ export const RESOURCES = [
   'deviceCommand',
 ];
 
-export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export const ACTIONS = ['READ', 'CREATE', 'UPDATE', 'DELETE', 'FULL'];
 
 export const DEVICE_COMMAND_ACTIONS = [
   'REBOOT',
@@ -25,7 +25,6 @@ export const DEVICE_COMMAND_ACTIONS = [
   'RTTY',
   'SCRIPT',
   'RE_ENROLL',
-  'FULL',
 ];
 
 export const RESOURCE_ACTIONS: Record<string, string[]> = {
@@ -49,6 +48,11 @@ export const filterValidActionsForResource = (
   actions: string[] = []
 ): string[] => {
   const allowed = getValidActionsForResource(resource);
-  const filtered = actions.filter((action) => allowed.includes(action));
+  // Normalize legacy aliases (e.g. MODIFY -> UPDATE)
+  const normalizedActions = actions.map((a) => (a === 'MODIFY' ? 'UPDATE' : a));
+  const filtered = normalizedActions.filter((action) => allowed.includes(action));
+  if (resource === 'deviceCommand') {
+    return Array.from(new Set(filtered));
+  }
   return filtered.includes('FULL') ? ['FULL'] : Array.from(new Set(filtered));
 };

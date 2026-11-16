@@ -180,9 +180,11 @@ const CreatePolicyModal = () => {
         updated = current.filter((a) => a !== action);
       } else {
         updated = [...current, action];
-        const allSelected = subActions.every((a) => updated.includes(a));
-        if (allSelected) {
-          updated = ['FULL'];
+        if (resource !== 'deviceCommand') {
+          const allSelected = subActions.every((a) => updated.includes(a));
+          if (allSelected) {
+            updated = ['FULL'];
+          }
         }
       }
 
@@ -314,7 +316,7 @@ const CreatePolicyModal = () => {
                   onClick={() =>
                     setCustomAccess(
                       RESOURCES.reduce(
-                        (acc, r) => ({ ...acc, [r]: ['FULL'] }),
+                        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['FULL'] }),
                         {} as Record<string, string[]>,
                       ),
                     )
