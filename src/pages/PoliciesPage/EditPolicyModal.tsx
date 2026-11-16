@@ -40,42 +40,22 @@ import {
 } from 'hooks/Network/ManagementRoles';
 import { getApiErrorMessage } from 'utils/apiErrorMessage';
 
-export const RESOURCES = [
-  'entity',
-  'venue',
-  'configuration',
-  'inventory',
-  'operator',
-  'subscriber',
-  'contact',
-  'location',
-  'managementRole',
-  'deviceCommand',
-];
+import {
+  RESOURCES,
+  ACTIONS,
+  DEVICE_COMMAND_ACTIONS,
+  RESOURCE_ACTIONS,
+  getValidActionsForResource,
+  filterValidActionsForResource,
+} from 'constants/managementPolicyPermissions';
 
-export const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
-export const DEVICE_COMMAND_ACTIONS = [
-  'REBOOT',
-  'CONFIGURE',
-  'BLINK',
-  'WIFI_SCAN',
-  'TELEMETRY',
-  'UPGRADE',
-  'FACTORY_RESET',
-  'TRACE',
-  'RTTY',
-  'SCRIPT',
-  'RE_ENROLL',
-  'FULL',
-];
-
-const getValidActionsForResource = (resource: string) =>
-  resource === 'deviceCommand' ? DEVICE_COMMAND_ACTIONS : ACTIONS;
-
-const filterValidActionsForResource = (resource: string, actions: string[]) => {
-  const allowed = getValidActionsForResource(resource);
-  const filtered = actions.filter((action) => allowed.includes(action));
-  return filtered.includes('FULL') ? ['FULL'] : Array.from(new Set(filtered));
+export {
+  RESOURCES,
+  ACTIONS,
+  DEVICE_COMMAND_ACTIONS,
+  RESOURCE_ACTIONS,
+  getValidActionsForResource,
+  filterValidActionsForResource,
 };
 
 type ResourcePermissionInputProps = {
@@ -189,11 +169,10 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
   // Form states
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [preset, setPreset] = useState('full'); // 'full', 'read', 'custom'
 
   // Custom resource states: maps resource to array of selected actions
   const [customAccess, setCustomAccess] = useState<Record<string, string[]>>(
-    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }), {}),
+    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>),
   );
 
   // Sync state with selected policy
@@ -202,65 +181,30 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       setName(policy.name);
       setDescription(policy.description || '');
 
-      // Detect preset & custom permissions mapping
-      const detect = () => {
-        const entries = policy.entries || [];
-        if (entries.length === 0) {
-          return {
-            detectedPreset: 'custom',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>),
-          };
-        }
-
-        const isFull =
-          entries.length === 1 &&
-          entries[0].access.includes('FULL') &&
-          entries[0].resources.length === RESOURCES.length;
-        if (isFull) {
-          return {
-            detectedPreset: 'full',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['FULL'] }), {} as Record<string, string[]>),
-          };
-        }
-
-        const isRead =
-          entries.length === 1 &&
-          entries[0].access.includes('READ') &&
-          entries[0].resources.length === RESOURCES.filter((r) => r !== 'deviceCommand').length;
-        if (isRead) {
-          return {
-            detectedPreset: 'read',
-            mapping: RESOURCES.reduce((acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }), {}),
-          };
-        }
-
-        // Custom mapping
-        const mapping = RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>);
-        const addResourceActions = (resource: string, accessList: string[]) => {
-          const validAccess = filterValidActionsForResource(resource, accessList);
-          if (validAccess.length === 0) return;
-          mapping[resource] = filterValidActionsForResource(resource, [
-            ...(mapping[resource] || []),
-            ...validAccess,
-          ]);
-        };
-        entries.forEach((entry) => {
-          const accessList = entry.access || [];
-          const cleanAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
-          entry.resources.forEach((res: string) => {
-            const key = res === 'device' ? 'inventory' : res;
-            if (key === '*') {
-              RESOURCES.forEach((r) => addResourceActions(r, cleanAccess));
-            } else if (mapping[key]) {
-              addResourceActions(key, cleanAccess);
-            }
-          });
-        });
-        return { detectedPreset: 'custom', mapping };
+      const entries = policy.entries || [];
+      const mapping = RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>);
+      const addResourceActions = (resource: string, accessList: string[]) => {
+        const validAccess = filterValidActionsForResource(resource, accessList);
+        if (validAccess.length === 0) return;
+        mapping[resource] = filterValidActionsForResource(resource, [
+          ...(mapping[resource] || []),
+          ...validAccess,
+        ]);
       };
 
-      const { detectedPreset, mapping } = detect();
-      setPreset(detectedPreset);
+      entries.forEach((entry) => {
+        const accessList = entry.access || [];
+        const cleanAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
+        entry.resources.forEach((res: string) => {
+          const key = res === 'device' ? 'inventory' : res;
+          if (key === '*') {
+            RESOURCES.forEach((r) => addResourceActions(r, cleanAccess));
+          } else if (mapping[key] !== undefined) {
+            addResourceActions(key, cleanAccess);
+          }
+        });
+      });
+
       setCustomAccess(mapping);
     }
   }, [policy, isOpen]);
@@ -311,41 +255,23 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
       return;
     }
 
-    let entries: { resources: string[]; access: string[] }[] = [];
-
-    if (preset === 'full') {
-      entries = [
-        {
-          resources: RESOURCES,
-          access: ['FULL'],
-        },
-      ];
-    } else if (preset === 'read') {
-      entries = [
-        {
-          resources: RESOURCES.filter((r) => r !== 'deviceCommand'),
-          access: ['READ'],
-        },
-      ];
-    } else {
-      const accessGroups: Record<string, string[]> = {};
-      Object.entries(customAccess).forEach(([resource, accessList]) => {
-        if (accessList && accessList.length > 0) {
-          const finalAccess = filterValidActionsForResource(resource, accessList);
-          if (finalAccess.length === 0) return;
-          const key = [...finalAccess].sort().join(',');
-          if (!accessGroups[key]) {
-            accessGroups[key] = [];
-          }
-          accessGroups[key].push(resource);
+    const accessGroups: Record<string, string[]> = {};
+    Object.entries(customAccess).forEach(([resource, accessList]) => {
+      if (accessList && accessList.length > 0) {
+        const finalAccess = filterValidActionsForResource(resource, accessList);
+        if (finalAccess.length === 0) return;
+        const key = [...finalAccess].sort().join(',');
+        if (!accessGroups[key]) {
+          accessGroups[key] = [];
         }
-      });
+        accessGroups[key].push(resource);
+      }
+    });
 
-      entries = Object.entries(accessGroups).map(([key, resources]) => ({
-        resources,
-        access: key.split(','),
-      }));
-    }
+    const entries = Object.entries(accessGroups).map(([key, resources]) => ({
+      resources,
+      access: key.split(','),
+    }));
 
     const payload: ManagementPolicy = {
       id: policy.id,
@@ -419,56 +345,89 @@ const EditPolicyModal = ({ isOpen, onClose, policy }: Props) => {
 
           <Divider my={4} />
 
-          <Heading size="xs" mb={2}>
-            Permissions Configuration
-          </Heading>
-          <FormControl mb={4}>
-            <FormLabel fontSize="sm">Access Profile Preset</FormLabel>
-            <Select
-              isDisabled={!isRoot}
-              value={preset}
-              onChange={(e) => setPreset(e.target.value)}
-              bg={panelBg}
-            >
-              <option value="full">Full Access (All Permissions)</option>
-              <option value="read">Read-Only (All View Permissions)</option>
-              <option value="custom">Custom Permissions Grid</option>
-            </Select>
-          </FormControl>
+          <Flex justify="space-between" align="center" mb={3}>
+            <Heading size="xs">
+              Permissions Configuration
+            </Heading>
+            {isRoot && (
+              <HStack spacing={2}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: ['FULL'] }),
+                        {} as Record<string, string[]>
+                      )
+                    )
+                  }
+                >
+                  Full Access
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }),
+                        {} as Record<string, string[]>
+                      )
+                    )
+                  }
+                >
+                  Read Only
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: [] }),
+                        {} as Record<string, string[]>
+                      )
+                    )
+                  }
+                >
+                  Clear All
+                </Button>
+              </HStack>
+            )}
+          </Flex>
 
-          {preset === 'custom' && (
-            <Box border="1px" borderColor={panelBorder} borderRadius="md" p={3} bg={subtleBg}>
-              <Grid templateColumns="160px 1fr" gap={3} alignItems="center">
-                <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
-                  Resource Name
-                </GridItem>
-                <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
-                  Access Level Permissions
-                </GridItem>
-                {RESOURCES.map((resource) => (
-                  <React.Fragment key={resource}>
-                    <GridItem>
-                      <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
-                        {resource === 'managementRole'
-                          ? 'Management Role'
-                          : resource === 'deviceCommand'
-                          ? 'Device Commands'
-                          : resource}
-                      </Text>
-                    </GridItem>
-                    <GridItem>
-                      <ResourcePermissionInput
-                        resource={resource}
-                        selectedActions={customAccess[resource] || []}
-                        onToggle={toggleAction}
-                        isDisabled={!isRoot}
-                      />
-                    </GridItem>
-                  </React.Fragment>
-                ))}
-              </Grid>
-            </Box>
-          )}
+          <Box border="1px" borderColor={panelBorder} borderRadius="md" p={3} bg={subtleBg}>
+            <Grid templateColumns="160px 1fr" gap={3} alignItems="center">
+              <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
+                Resource Name
+              </GridItem>
+              <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
+                Access Level Permissions
+              </GridItem>
+              {RESOURCES.map((resource) => (
+                <React.Fragment key={resource}>
+                  <GridItem>
+                    <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
+                      {resource === 'managementRole'
+                        ? 'Management Role'
+                        : resource === 'deviceCommand'
+                        ? 'Device Commands'
+                        : resource}
+                    </Text>
+                  </GridItem>
+                  <GridItem>
+                    <ResourcePermissionInput
+                      resource={resource}
+                      selectedActions={customAccess[resource] || []}
+                      onToggle={toggleAction}
+                      isDisabled={!isRoot}
+                    />
+                  </GridItem>
+                </React.Fragment>
+              ))}
+            </Grid>
+          </Box>
         </ModalBody>
         <ModalFooter>
           <Button colorScheme="gray" mr={3} onClick={onClose}>

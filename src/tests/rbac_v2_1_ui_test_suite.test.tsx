@@ -283,17 +283,11 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     mockUserRole = 'root';
     const Wrapper = createWrapper();
-    const { getByRole, getByText } = render(
+    const { getByText } = render(
       <Wrapper>
         <EditPolicyModal isOpen onClose={() => {}} policy={fullPolicy} />
       </Wrapper>
     );
-
-    const presetSelect = getByRole('combobox') as HTMLSelectElement;
-    expect(presetSelect.value).toBe('full');
-
-    fireEvent.change(presetSelect, { target: { value: 'custom' } });
-    expect(presetSelect.value).toBe('custom');
 
     const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     expect(deviceCommandsCell).toBeTruthy();
@@ -327,14 +321,11 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     mockUserRole = 'root';
     const Wrapper = createWrapper();
-    const { getByRole, getByText, unmount } = render(
+    const { getByText, unmount } = render(
       <Wrapper>
         <EditPolicyModal isOpen onClose={() => {}} policy={wildcardReadPolicy} />
       </Wrapper>
     );
-
-    const presetSelect = getByRole('combobox') as HTMLSelectElement;
-    expect(presetSelect.value).toBe('custom');
 
     const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     expect(deviceCommandsCell).toBeTruthy();
@@ -378,7 +369,7 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
   it('10. CreatePolicyModal selecting REBOOT and WIFI_SCAN produces the expected API payload', () => {
     mockUserRole = 'root';
     const Wrapper = createWrapper();
-    const { getByText, getByPlaceholderText, getByRole } = render(
+    const { getByText, getByPlaceholderText } = render(
       <Wrapper>
         <CreatePolicyModal />
       </Wrapper>
@@ -386,10 +377,10 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     fireEvent.click(getByText('crud.create'));
     fireEvent.change(getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Device Command Ops' } });
-    fireEvent.change(getByRole('combobox'), { target: { value: 'custom' } });
 
     const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     expect(deviceCommandsCell).toBeTruthy();
+    expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
 
     fireEvent.click(within(deviceCommandsCell).getByText('REBOOT'));
     fireEvent.click(within(deviceCommandsCell).getByText('WIFI_SCAN'));
@@ -420,7 +411,7 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     fireEvent.click(createView.getByText('crud.create'));
     fireEvent.change(createView.getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Read Only Policy' } });
-    fireEvent.change(createView.getByRole('combobox'), { target: { value: 'read' } });
+    fireEvent.click(createView.getByText('Read Only'));
     fireEvent.click(createView.getByText('common.save'));
 
     expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
@@ -436,10 +427,6 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
       </Wrapper>
     );
 
-    const presetSelect = editView.getByRole('combobox') as HTMLSelectElement;
-    expect(presetSelect.value).toBe('read');
-
-    fireEvent.change(presetSelect, { target: { value: 'custom' } });
     const deviceCommandsCell = editView.getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
 
@@ -460,6 +447,7 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     fireEvent.click(createView.getByText('crud.create'));
     fireEvent.change(createView.getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Full Access Roundtrip' } });
+    fireEvent.click(createView.getByText('Full Access'));
     fireEvent.click(createView.getByText('common.save'));
 
     expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
@@ -473,8 +461,6 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
         <EditPolicyModal isOpen onClose={() => {}} policy={createdPolicy} />
       </Wrapper>
     );
-    const presetSelect = editView.getByRole('combobox') as HTMLSelectElement;
-    expect(presetSelect.value).toBe('full');
 
     fireEvent.click(editView.getByText('common.save'));
     expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
@@ -498,13 +484,11 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
 
     mockUserRole = 'root';
     const Wrapper = createWrapper();
-    const { getByRole, getByText, getByPlaceholderText } = render(
+    const { getByText, getByPlaceholderText } = render(
       <Wrapper>
         <EditPolicyModal isOpen onClose={() => {}} policy={existingPolicy} />
       </Wrapper>
     );
-
-    expect((getByRole('combobox') as HTMLSelectElement).value).toBe('custom');
 
     const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
     const closeButtons = within(deviceCommandsCell).getAllByRole('button', { name: 'close' });
