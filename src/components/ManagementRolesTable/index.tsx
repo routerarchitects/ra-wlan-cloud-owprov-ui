@@ -587,7 +587,13 @@ export const ManagementRolesTable = ({ userId, isReadOnly = false }: Props) => {
               <Tbody>
                 {getPolicyPermissions(currentPolicy).map((p) => (
                   <Tr key={p.resource}>
-                    <Td textTransform="capitalize" fontSize="xs" color={tableText}>{p.resource}</Td>
+                    <Td textTransform="capitalize" fontSize="xs" color={tableText}>
+                      {p.resource === 'managementRole'
+                        ? 'Management Role'
+                        : p.resource === 'deviceCommand'
+                        ? 'Device Commands'
+                        : p.resource}
+                    </Td>
                     <Td fontWeight="bold" fontSize="xs" color={p.access === 'NOACCESS' ? noAccessText : accentText}>
                       {p.access}
                     </Td>

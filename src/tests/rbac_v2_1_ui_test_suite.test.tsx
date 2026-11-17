@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { ChakraProvider } from '@chakra-ui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -40,6 +40,8 @@ vi.mock('react-i18next', () => ({
 
 let mockUserRole: string = 'root';
 let mockCreateRoleMutation = { mutate: vi.fn(), isLoading: false };
+let mockUpdatePolicyMutation = { mutate: vi.fn(), isLoading: false };
+let mockCreatePolicyMutation = { mutate: vi.fn(), isLoading: false };
 
 vi.mock('contexts/AuthProvider', () => ({
   useAuth: () => ({ user: { id: 'usr-1', userRole: mockUserRole } }),
@@ -63,13 +65,14 @@ vi.mock('hooks/Network/ManagementRoles', async () => {
     useCreateManagementRole: () => mockCreateRoleMutation,
     useUpdateManagementRole: () => ({ mutate: vi.fn(), isLoading: false }),
     useDeleteManagementRole: () => ({ mutate: vi.fn(), isLoading: false }),
-    useUpdateManagementPolicy: () => ({ mutate: vi.fn(), isLoading: false }),
-    useCreateManagementPolicy: () => ({ mutate: vi.fn(), isLoading: false }),
+    useUpdateManagementPolicy: () => mockUpdatePolicyMutation,
+    useCreateManagementPolicy: () => mockCreatePolicyMutation,
   };
 });
 
-import { RESOURCES as PRODUCTION_POLICY_RESOURCES } from 'pages/PoliciesPage/CreatePolicyModal';
-import EditPolicyModal from 'pages/PoliciesPage/EditPolicyModal';
+import CreatePolicyModal, { RESOURCES as PRODUCTION_POLICY_RESOURCES } from 'pages/PoliciesPage/CreatePolicyModal';
+import EditPolicyModal, { RESOURCES as EDIT_POLICY_RESOURCES } from 'pages/PoliciesPage/EditPolicyModal';
+import { DEVICE_COMMAND_ACTIONS } from 'constants/managementPolicyPermissions';
 import PolicyTable from 'pages/PoliciesPage/Table';
 import { ManagementRolesTable } from 'components/ManagementRolesTable';
 import { Sidebar } from 'layout/Sidebar';
@@ -92,6 +95,8 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
   beforeEach(() => {
     mockUserRole = 'root';
     mockCreateRoleMutation = { mutate: vi.fn(), isLoading: false };
+    mockUpdatePolicyMutation = { mutate: vi.fn(), isLoading: false };
+    mockCreatePolicyMutation = { mutate: vi.fn(), isLoading: false };
   });
 
   it('1. Renders policy create controls only for root users via PolicyTable component mount', () => {
@@ -251,6 +256,7 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
     expect(PRODUCTION_POLICY_RESOURCES).toContain('subscriber');
     expect(PRODUCTION_POLICY_RESOURCES).toContain('contact');
     expect(PRODUCTION_POLICY_RESOURCES).toContain('managementRole');
+    expect(PRODUCTION_POLICY_RESOURCES).toContain('deviceCommand');
   });
 
   it('7. VenueContactsCard lastEntity selection resolves immediate parent entity closest to venue', () => {
@@ -265,4 +271,359 @@ describe('Hierarchical RBAC UI Component Test Suite', () => {
     expect(lastEntity?.uuid).toBe('nested-parent-entity-002');
     expect(lastEntity?.uuid).not.toBe('root-entity-001');
   });
+
+  it('8. EditPolicyModal initializes standard resources with FULL and never converts all device commands to FULL', () => {
+    const fullPolicy: ManagementPolicy = {
+      id: 'policy-full-1',
+      name: 'Full Policy',
+      description: 'Full access policy',
+      entity: '',
+      venue: '',
+      entries: [
+        { resources: EDIT_POLICY_RESOURCES.filter((r) => r !== 'deviceCommand'), access: ['FULL'] },
+        { resources: ['deviceCommand'], access: ['REBOOT', 'WIFI_SCAN'] },
+      ],
+    };
+
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const { getByText } = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={fullPolicy} />
+      </Wrapper>
+    );
+
+    const entityCell = getByText('entity').parentElement?.nextElementSibling as HTMLElement;
+    const entityCloseBtn = within(entityCell).getByRole('button', { name: 'close' });
+    const entityTags = entityCloseBtn.parentElement?.parentElement as HTMLElement;
+    expect(within(entityTags).getByText('FULL')).toBeTruthy();
+
+    const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    expect(deviceCommandsCell).toBeTruthy();
+
+    const closeButtons = within(deviceCommandsCell).getAllByRole('button', { name: 'close' });
+    const devCmdTags = closeButtons[0].parentElement?.parentElement as HTMLElement;
+    expect(within(devCmdTags).getByText('REBOOT')).toBeTruthy();
+    expect(within(devCmdTags).getByText('WIFI_SCAN')).toBeTruthy();
+    expect(within(devCmdTags).queryByText('FULL')).toBeNull();
+
+    // Selecting all device commands maintains explicit list and never collapses to FULL
+    DEVICE_COMMAND_ACTIONS.forEach((cmd) => {
+      if (!['REBOOT', 'WIFI_SCAN'].includes(cmd)) {
+        fireEvent.click(within(deviceCommandsCell).getByText(cmd));
+      }
+    });
+
+    DEVICE_COMMAND_ACTIONS.forEach((cmd) => {
+      expect(within(devCmdTags).getByText(cmd)).toBeTruthy();
+    });
+    expect(within(devCmdTags).queryByText('FULL')).toBeNull();
+  });
+
+  it('9. EditPolicyModal filters wildcard (*) entry actions per resource and omits invalid deviceCommand:READ on save', () => {
+    const wildcardReadPolicy: ManagementPolicy = {
+      id: 'policy-wildcard-read-1',
+      name: 'Wildcard Read Policy',
+      description: 'Wildcard read policy',
+      entity: '',
+      venue: '',
+      entries: [{ resources: ['*'], access: ['READ'] }],
+    };
+
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const { getByText, unmount } = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={wildcardReadPolicy} />
+      </Wrapper>
+    );
+
+    const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    expect(deviceCommandsCell).toBeTruthy();
+    expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+    expect(within(deviceCommandsCell).queryByRole('button', { name: 'close' })).toBeNull();
+
+    // Standard resources still receive READ from the wildcard entry
+    const entityCell = getByText('entity').parentElement?.nextElementSibling as HTMLElement;
+    const entityCloseBtn = within(entityCell).getByRole('button', { name: 'close' });
+    const entityTagsContainer = entityCloseBtn.parentElement?.parentElement as HTMLElement;
+    expect(within(entityTagsContainer).getByText('READ')).toBeTruthy();
+
+    fireEvent.click(getByText('common.save'));
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const savedPayload = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(savedPayload.entries).toHaveLength(1);
+    expect(savedPayload.entries[0].access).toEqual(['READ']);
+    expect(savedPayload.entries[0].resources).not.toContain('deviceCommand');
+    unmount();
+
+    // Wildcard FULL grants FULL on standard resources but omits deviceCommand because device commands require explicit selection
+    const wildcardFullPolicy: ManagementPolicy = {
+      id: 'policy-wildcard-full-1',
+      name: 'Wildcard Full Policy',
+      description: 'Wildcard full policy',
+      entity: '',
+      venue: '',
+      entries: [{ resources: ['*'], access: ['FULL'] }],
+    };
+    const fullRender = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={wildcardFullPolicy} />
+      </Wrapper>
+    );
+    const fullDevCmdCell = fullRender.getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    expect(within(fullDevCmdCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+    expect(within(fullDevCmdCell).queryByRole('button', { name: 'close' })).toBeNull();
+  });
+
+  it('10. CreatePolicyModal selecting REBOOT and WIFI_SCAN produces the expected API payload', () => {
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const { getByText, getByPlaceholderText } = render(
+      <Wrapper>
+        <CreatePolicyModal />
+      </Wrapper>
+    );
+
+    fireEvent.click(getByText('crud.create'));
+    fireEvent.change(getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Device Command Ops' } });
+
+    PRODUCTION_POLICY_RESOURCES.forEach((resource) => {
+      const label = resource === 'deviceCommand' ? 'Device Commands' : resource === 'managementRole' ? 'Management Role' : resource;
+      const cell = getByText(label).parentElement?.nextElementSibling as HTMLElement;
+      expect(within(cell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+      expect(within(cell).queryByRole('button', { name: 'close' })).toBeNull();
+    });
+
+    const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    expect(deviceCommandsCell).toBeTruthy();
+    expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+    expect(within(deviceCommandsCell).queryByText('FULL')).toBeNull();
+
+    fireEvent.click(within(deviceCommandsCell).getByText('REBOOT'));
+    fireEvent.click(within(deviceCommandsCell).getByText('WIFI_SCAN'));
+    fireEvent.click(within(deviceCommandsCell).getByText('EVENTQUEUE'));
+
+    const closeButtons = within(deviceCommandsCell).getAllByRole('button', { name: 'close' });
+    const tagsContainer = closeButtons[0].parentElement?.parentElement as HTMLElement;
+    expect(within(tagsContainer).getByText('REBOOT')).toBeTruthy();
+    expect(within(tagsContainer).getByText('WIFI_SCAN')).toBeTruthy();
+    expect(within(tagsContainer).getByText('EVENTQUEUE')).toBeTruthy();
+
+    fireEvent.click(getByText('common.save'));
+    expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const payload = mockCreatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(payload.entries).toEqual(
+      expect.arrayContaining([
+        { resources: ['deviceCommand'], access: ['EVENTQUEUE', 'REBOOT', 'WIFI_SCAN'] },
+      ])
+    );
+  });
+
+  it('11. Read-only policies never grant deviceCommand on create or edit', () => {
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const createView = render(
+      <Wrapper>
+        <CreatePolicyModal />
+      </Wrapper>
+    );
+
+    fireEvent.click(createView.getByText('crud.create'));
+    fireEvent.change(createView.getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Read Only Policy' } });
+    fireEvent.click(createView.getByText('Read Only'));
+    fireEvent.click(createView.getByText('common.save'));
+
+    expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const createdPolicy = mockCreatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(createdPolicy.entries).toHaveLength(1);
+    expect(createdPolicy.entries[0].access).toEqual(['READ']);
+    expect(createdPolicy.entries[0].resources).not.toContain('deviceCommand');
+    createView.unmount();
+
+    const editView = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={createdPolicy} />
+      </Wrapper>
+    );
+
+    const deviceCommandsCell = editView.getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    expect(within(deviceCommandsCell).getByText('No permissions selected (NOACCESS)')).toBeTruthy();
+
+    fireEvent.click(editView.getByText('common.save'));
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const updatedPolicy = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(updatedPolicy.entries.every((e) => !e.resources.includes('deviceCommand'))).toBe(true);
+  });
+
+  it('12. Full Access policy round-trips cleanly across CreatePolicyModal and EditPolicyModal', () => {
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const createView = render(
+      <Wrapper>
+        <CreatePolicyModal />
+      </Wrapper>
+    );
+
+    fireEvent.click(createView.getByText('crud.create'));
+    fireEvent.change(createView.getByPlaceholderText('e.g. CSR Policy'), { target: { value: 'Full Access Roundtrip' } });
+    fireEvent.click(createView.getByText('Full Access'));
+    fireEvent.click(createView.getByText('common.save'));
+
+    expect(mockCreatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const createdPolicy = mockCreatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    const expectedStandardResources = PRODUCTION_POLICY_RESOURCES.filter((r) => r !== 'deviceCommand');
+    expect(createdPolicy.entries).toEqual([{ resources: expectedStandardResources, access: ['FULL'] }]);
+    expect(createdPolicy.entries[0].resources).not.toContain('deviceCommand');
+    createView.unmount();
+
+    const editView = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={createdPolicy} />
+      </Wrapper>
+    );
+
+    fireEvent.click(editView.getByText('common.save'));
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const updatedPolicy = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    const expectedEditResources = EDIT_POLICY_RESOURCES.filter((r) => r !== 'deviceCommand');
+    expect(updatedPolicy.entries).toEqual([{ resources: expectedEditResources, access: ['FULL'] }]);
+    expect(updatedPolicy.entries[0].resources).not.toContain('deviceCommand');
+  });
+
+  it('13. Editing an existing command policy preserves deviceCommand permissions', () => {
+    const existingPolicy: ManagementPolicy = {
+      id: 'policy-cmd-1',
+      name: 'Command Operator',
+      description: 'Original description',
+      entity: '',
+      venue: '',
+      entries: [
+        { resources: ['inventory'], access: ['READ'] },
+        { resources: ['deviceCommand'], access: ['REBOOT', 'WIFI_SCAN'] },
+      ],
+    };
+
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const { getByText, getByPlaceholderText } = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={existingPolicy} />
+      </Wrapper>
+    );
+
+    const deviceCommandsCell = getByText('Device Commands').parentElement?.nextElementSibling as HTMLElement;
+    const closeButtons = within(deviceCommandsCell).getAllByRole('button', { name: 'close' });
+    const tagsContainer = closeButtons[0].parentElement?.parentElement as HTMLElement;
+    expect(within(tagsContainer).getByText('REBOOT')).toBeTruthy();
+    expect(within(tagsContainer).getByText('WIFI_SCAN')).toBeTruthy();
+
+    fireEvent.change(getByPlaceholderText('Write policy description...'), {
+      target: { value: 'Updated command description' },
+    });
+    fireEvent.click(getByText('common.save'));
+
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const savedPayload = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(savedPayload.description).toBe('Updated command description');
+    expect(savedPayload.entries).toEqual(
+      expect.arrayContaining([
+        { resources: ['inventory'], access: ['READ'] },
+        { resources: ['deviceCommand'], access: ['REBOOT', 'WIFI_SCAN'] },
+      ])
+    );
+  });
+
+  it('14. Editing existing OWPROV seed NOC and Installer policies preserves UPDATE permissions without loss', () => {
+    // Real OWPROV seed NOC policy from StorageService.cpp
+    const nocPolicy: ManagementPolicy = {
+      id: 'policy-noc-001',
+      name: 'NOC',
+      description: 'Operational and monitoring access within the assigned role scope',
+      entity: '',
+      venue: '',
+      entries: [
+        {
+          resources: ['entity', 'venue', 'operator', 'subscriber', 'contact', 'location', 'managementRole'],
+          access: ['READ'],
+        },
+        {
+          resources: ['configuration', 'inventory'],
+          access: ['READ', 'UPDATE'],
+        },
+      ],
+    };
+
+    mockUserRole = 'root';
+    const Wrapper = createWrapper();
+    const { getByText, getByPlaceholderText, unmount } = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={nocPolicy} />
+      </Wrapper>
+    );
+
+    // Verify UI reflects both READ and UPDATE on configuration and inventory tags
+    const configCell = getByText('configuration').parentElement?.nextElementSibling as HTMLElement;
+    const configCloseButtons = within(configCell).getAllByRole('button', { name: 'close' });
+    const configTags = configCloseButtons[0].parentElement?.parentElement as HTMLElement;
+    expect(within(configTags).getByText('READ')).toBeTruthy();
+    expect(within(configTags).getByText('UPDATE')).toBeTruthy();
+
+    const invCell = getByText('inventory').parentElement?.nextElementSibling as HTMLElement;
+    const invCloseButtons = within(invCell).getAllByRole('button', { name: 'close' });
+    const invTags = invCloseButtons[0].parentElement?.parentElement as HTMLElement;
+    expect(within(invTags).getByText('READ')).toBeTruthy();
+    expect(within(invTags).getByText('UPDATE')).toBeTruthy();
+
+    // Change description and save without modifying permissions
+    fireEvent.change(getByPlaceholderText('Write policy description...'), {
+      target: { value: 'Updated NOC description' },
+    });
+    fireEvent.click(getByText('common.save'));
+
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(1);
+    const nocSaved = mockUpdatePolicyMutation.mutate.mock.calls[0][0] as ManagementPolicy;
+    expect(nocSaved.description).toBe('Updated NOC description');
+
+    // Both configuration and inventory MUST retain UPDATE access (prevent silent privilege loss)
+    const updateEntry = nocSaved.entries.find((e) => e.access.includes('UPDATE'));
+    expect(updateEntry).toBeDefined();
+    expect(updateEntry?.access).toEqual(expect.arrayContaining(['READ', 'UPDATE']));
+    expect(updateEntry?.resources).toEqual(expect.arrayContaining(['configuration', 'inventory']));
+    unmount();
+
+    // Real OWPROV seed Installer policy from StorageService.cpp
+    const installerPolicy: ManagementPolicy = {
+      id: 'policy-installer-002',
+      name: 'Installer',
+      description: 'Installation access within the assigned role scope',
+      entity: '',
+      venue: '',
+      entries: [
+        {
+          resources: ['entity', 'venue', 'configuration', 'contact', 'location'],
+          access: ['READ'],
+        },
+        {
+          resources: ['inventory'],
+          access: ['READ', 'UPDATE'],
+        },
+      ],
+    };
+
+    const instRender = render(
+      <Wrapper>
+        <EditPolicyModal isOpen onClose={() => {}} policy={installerPolicy} />
+      </Wrapper>
+    );
+
+    fireEvent.click(instRender.getByText('common.save'));
+    expect(mockUpdatePolicyMutation.mutate).toHaveBeenCalledTimes(2);
+    const instSaved = mockUpdatePolicyMutation.mutate.mock.calls[1][0] as ManagementPolicy;
+    const instUpdateEntry = instSaved.entries.find((e) => e.access.includes('UPDATE'));
+    expect(instUpdateEntry).toBeDefined();
+    expect(instUpdateEntry?.resources).toEqual(['inventory']);
+    expect(instUpdateEntry?.access).toEqual(expect.arrayContaining(['READ', 'UPDATE']));
+  });
+
 });

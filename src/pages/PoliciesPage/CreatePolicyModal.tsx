@@ -4,7 +4,6 @@ import {
   FormControl,
   FormLabel,
   Input,
-  Select,
   Textarea,
   Modal,
   ModalOverlay,
@@ -41,19 +40,23 @@ import {
 } from 'hooks/Network/ManagementRoles';
 import { getApiErrorMessage } from 'utils/apiErrorMessage';
 
-export const RESOURCES = [
-  'entity',
-  'venue',
-  'configuration',
-  'inventory',
-  'operator',
-  'subscriber',
-  'contact',
-  'location',
-  'managementRole',
-];
+import {
+  RESOURCES,
+  ACTIONS,
+  DEVICE_COMMAND_ACTIONS,
+  RESOURCE_ACTIONS,
+  getValidActionsForResource,
+  filterValidActionsForResource,
+} from 'constants/managementPolicyPermissions';
 
-const ACTIONS = ['READ', 'CREATE', 'MODIFY', 'DELETE', 'FULL'];
+export {
+  RESOURCES,
+  ACTIONS,
+  DEVICE_COMMAND_ACTIONS,
+  RESOURCE_ACTIONS,
+  getValidActionsForResource,
+  filterValidActionsForResource,
+};
 
 type ResourcePermissionInputProps = {
   resource: string;
@@ -68,6 +71,7 @@ const ResourcePermissionInput = ({
 }: ResourcePermissionInputProps) => {
   const panelBg = useColorModeValue('white', 'gray.700');
   const panelBorder = useColorModeValue('gray.300', 'gray.600');
+  const availableActions = getValidActionsForResource(resource);
 
   const removeAction = (action: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -115,7 +119,7 @@ const ResourcePermissionInput = ({
         </Flex>
       </MenuButton>
       <MenuList minW="180px" zIndex={1400} p={1}>
-        {ACTIONS.map((action) => {
+        {availableActions.map((action) => {
           const isSelected = selectedActions.includes(action);
           return (
             <MenuItem
@@ -150,11 +154,10 @@ const CreatePolicyModal = () => {
   // Form states
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [preset, setPreset] = useState('full'); // 'full', 'read', 'custom'
 
   // Custom resource states: maps resource to array of selected actions
-  const [customAccess, setCustomAccess] = useState<Record<string, string[]>>(
-    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}),
+  const [customAccess, setCustomAccess] = useState<Record<string, string[]>>(() =>
+    RESOURCES.reduce((acc, r) => ({ ...acc, [r]: [] }), {} as Record<string, string[]>),
   );
 
   const toggleAction = (resource: string, action: string) => {
@@ -169,20 +172,19 @@ const CreatePolicyModal = () => {
       }
 
       let updated: string[];
+      const subActions = getValidActionsForResource(resource).filter((a) => a !== 'FULL');
+
       if (current.includes('FULL')) {
-        const subActions = ['READ', 'CREATE', 'MODIFY', 'DELETE'];
         updated = subActions.filter((a) => a !== action);
       } else if (current.includes(action)) {
         updated = current.filter((a) => a !== action);
       } else {
         updated = [...current, action];
-        if (
-          updated.includes('READ') &&
-          updated.includes('CREATE') &&
-          updated.includes('MODIFY') &&
-          updated.includes('DELETE')
-        ) {
-          updated = ['FULL'];
+        if (resource !== 'deviceCommand') {
+          const allSelected = subActions.every((a) => updated.includes(a));
+          if (allSelected) {
+            updated = ['FULL'];
+          }
         }
       }
 
@@ -205,41 +207,24 @@ const CreatePolicyModal = () => {
       return;
     }
 
-    let entries: { resources: string[]; access: string[] }[] = [];
-
-    if (preset === 'full') {
-      entries = [
-        {
-          resources: RESOURCES,
-          access: ['FULL'],
-        },
-      ];
-    } else if (preset === 'read') {
-      entries = [
-        {
-          resources: RESOURCES,
-          access: ['READ'],
-        },
-      ];
-    } else {
-      // Group by access permissions list to make payload compact
-      const accessGroups: Record<string, string[]> = {};
-      Object.entries(customAccess).forEach(([resource, accessList]) => {
-        if (accessList && accessList.length > 0) {
-          const finalAccess = accessList.includes('FULL') ? ['FULL'] : accessList;
-          const key = [...finalAccess].sort().join(',');
-          if (!accessGroups[key]) {
-            accessGroups[key] = [];
-          }
-          accessGroups[key].push(resource);
+    // Group by access permissions list to make payload compact
+    const accessGroups: Record<string, string[]> = {};
+    Object.entries(customAccess).forEach(([resource, accessList]) => {
+      if (accessList && accessList.length > 0) {
+        const finalAccess = filterValidActionsForResource(resource, accessList);
+        if (finalAccess.length === 0) return;
+        const key = [...finalAccess].sort().join(',');
+        if (!accessGroups[key]) {
+          accessGroups[key] = [];
         }
-      });
+        accessGroups[key].push(resource);
+      }
+    });
 
-      entries = Object.entries(accessGroups).map(([key, resources]) => ({
-        resources,
-        access: key.split(','),
-      }));
-    }
+    const entries = Object.entries(accessGroups).map(([key, resources]) => ({
+      resources,
+      access: key.split(','),
+    }));
 
     const payload: ManagementPolicy = {
       id: uuid(),
@@ -277,13 +262,17 @@ const CreatePolicyModal = () => {
   const resetForm = () => {
     setName('');
     setDescription('');
-    setPreset('full');
-    setCustomAccess(RESOURCES.reduce((acc, r) => ({ ...acc, [r]: ['READ'] }), {}));
+    setCustomAccess(
+      RESOURCES.reduce(
+        (acc, r) => ({ ...acc, [r]: [] }),
+        {} as Record<string, string[]>,
+      ),
+    );
   };
 
   return (
     <>
-      <Button colorScheme="blue" leftIcon={<Plus size={18} />} onClick={onOpen}>
+      <Button colorScheme="blue" leftIcon={<Plus size={18} />} onClick={() => { resetForm(); onOpen(); }}>
         {t('crud.create')}
       </Button>
 
@@ -316,46 +305,86 @@ const CreatePolicyModal = () => {
 
             <Divider my={4} />
 
-            <Heading size="xs" mb={2}>
-              Permissions Configuration
-            </Heading>
-            <FormControl mb={4}>
-              <FormLabel fontSize="sm">Access Profile Preset</FormLabel>
-              <Select value={preset} onChange={(e) => setPreset(e.target.value)} bg={panelBg}>
-                <option value="full">Full Access (All Permissions)</option>
-                <option value="read">Read-Only (All View Permissions)</option>
-                <option value="custom">Custom Permissions Grid</option>
-              </Select>
-            </FormControl>
+            <Flex justify="space-between" align="center" mb={3}>
+              <Heading size="xs">
+                Permissions Configuration
+              </Heading>
+              <HStack spacing={2}>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['FULL'] }),
+                        {} as Record<string, string[]>,
+                      ),
+                    )
+                  }
+                >
+                  Full Access
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: r === 'deviceCommand' ? [] : ['READ'] }),
+                        {} as Record<string, string[]>,
+                      ),
+                    )
+                  }
+                >
+                  Read Only
+                </Button>
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() =>
+                    setCustomAccess(
+                      RESOURCES.reduce(
+                        (acc, r) => ({ ...acc, [r]: [] }),
+                        {} as Record<string, string[]>,
+                      ),
+                    )
+                  }
+                >
+                  Clear All
+                </Button>
+              </HStack>
+            </Flex>
 
-            {preset === 'custom' && (
-              <Box border="1px" borderColor={panelBorder} borderRadius="md" p={3} bg={subtleBg}>
-                <Grid templateColumns="160px 1fr" gap={3} alignItems="center">
-                  <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
-                    Resource Name
-                  </GridItem>
-                  <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
-                    Access Level Permissions
-                  </GridItem>
-                  {RESOURCES.map((resource) => (
-                    <React.Fragment key={resource}>
-                      <GridItem>
-                        <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
-                          {resource === 'managementRole' ? 'Management Role' : resource}
-                        </Text>
-                      </GridItem>
-                      <GridItem>
-                        <ResourcePermissionInput
-                          resource={resource}
-                          selectedActions={customAccess[resource] || []}
-                          onToggle={toggleAction}
-                        />
-                      </GridItem>
-                    </React.Fragment>
-                  ))}
-                </Grid>
-              </Box>
-            )}
+            <Box border="1px" borderColor={panelBorder} borderRadius="md" p={3} bg={subtleBg}>
+              <Grid templateColumns="160px 1fr" gap={3} alignItems="center">
+                <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
+                  Resource Name
+                </GridItem>
+                <GridItem fontWeight="bold" fontSize="xs" color={mutedText}>
+                  Access Level Permissions
+                </GridItem>
+                {RESOURCES.map((resource) => (
+                  <React.Fragment key={resource}>
+                    <GridItem>
+                      <Text fontSize="sm" textTransform="capitalize" fontWeight="medium">
+                        {resource === 'managementRole'
+                          ? 'Management Role'
+                          : resource === 'deviceCommand'
+                          ? 'Device Commands'
+                          : resource}
+                      </Text>
+                    </GridItem>
+                    <GridItem>
+                      <ResourcePermissionInput
+                        resource={resource}
+                        selectedActions={customAccess[resource] || []}
+                        onToggle={toggleAction}
+                      />
+                    </GridItem>
+                  </React.Fragment>
+                ))}
+              </Grid>
+            </Box>
           </ModalBody>
           <ModalFooter>
             <Button colorScheme="gray" mr={3} onClick={onClose}>
